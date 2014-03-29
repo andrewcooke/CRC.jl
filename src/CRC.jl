@@ -18,9 +18,8 @@ export rem_no_table
 # 8th degree polynomials to be specified in 8 bits, etc.
 function rem_no_table{G<:Unsigned,D<:Unsigned}(degree::Int, generator::G, data::Vector{D})
     mask = convert(G, (1 << degree) - 1)
+    # this is carry before shift, so is (implicit) msb / 2
     carry = one(G) << (degree - 1)
-    println("mask $mask carry $carry")
-    generator &= mask
     word_size = 8 * sizeof(D)
     shift = degree - word_size
     @assert degree <= 8 * sizeof(G) "generator too small for degree"
@@ -28,7 +27,6 @@ function rem_no_table{G<:Unsigned,D<:Unsigned}(degree::Int, generator::G, data::
     remainder::G = zero(G)
     for word in data
         remainder = remainder $ (convert(G, word) << shift)
-        println("remainder $remainder")
         for i in 1:word_size
             if remainder & carry == carry
                 remainder = (remainder << 1) $ generator
@@ -37,8 +35,10 @@ function rem_no_table{G<:Unsigned,D<:Unsigned}(degree::Int, generator::G, data::
             end
         end
     end
-    println("remainder $remainder")
-    remainder
+    # when the generator is smaller than the data type we don't lose
+    # bits by overflow, so trim before returning (no need to discard
+    # optional explicit msb before loop because this does the same)
+    remainder & mask
 end
 
 
