@@ -7,7 +7,7 @@
 
 module CRC
 
-export rem_no_table
+export rem_no_table, rem_single_table, single_table
 
 # the basic idea is to do a polynomial division along the byte stream.
 # it's all explained very nicely at
@@ -70,11 +70,12 @@ end
 
 function rem_single_table{G<:Unsigned,D<:Unsigned}(degree::Int, generator::G, data::Vector{D}, table::Vector{G})
     word_size = 8 * sizeof(D)
-    generator, shift, mask, carry = check_generator(degree, generator, word_size)
+    @assert 2 ^ word_size == length(table) "wrong sized table"
+    generator, shift, carry, mask = check_generator(degree, generator, word_size)
     remainder::G = zero(G)
     for word in data
         remainder = remainder $ (convert(G, word) << shift)
-        remainder = table[(remainder >> shift) + 1]
+        remainder = mask & ((remainder << word_size) $ table[1 + (remainder >>> shift)])
     end
     remainder
 end
