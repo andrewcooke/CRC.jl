@@ -14,6 +14,7 @@ module CRC
 export rem_no_table, make_table, rem_word_table, rem_small_table,
        rem_big_table
 
+
 function check_generator{G<:Unsigned}(degree::Int, generator::G, chunk_size::Int)
     @assert degree <= 8 * sizeof(G) "generator too small for degree"
     # the shift needed to move something of chunk_size to the msb-1
@@ -144,5 +145,14 @@ function rem_big_table{G<:Unsigned,D<:Unsigned}(degree::Int, generator::G, data:
     remainder
 end
 
+
+type Std{G<:Unsigned, T<:Unsigned}
+    poly::G
+    init::G
+    check::G
+    table::Union{Nothing, Vector{T}}
+end
+
+CITT = Std(0x1021, 0xffff, 0x0000, nothing)
 
 end
