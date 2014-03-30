@@ -49,7 +49,7 @@ end
 # generate a word-sized lookup table to optimize the word_size loop in
 # the routine above.
 
-function single_table{G<:Unsigned}(degree::Int, generator::G, word_size::Int)
+function make_table{G<:Unsigned}(degree::Int, generator::G, word_size::Int)
     @assert word_size < 33 "table too large"  # even this is huge
     generator, shift, carry, mask = check_generator(degree, generator, word_size)
     size = 2 ^ word_size
