@@ -157,9 +157,25 @@ end
 
 
 function test_rem_big_table()
-    print("rem_small_table")
+    print("rem_big_table")
 
     for _ in 1:10
+
+        # a 16th degree polynomial with 2 bytes of data (now 16 bits
+        # of padding)
+        a1 = rand(Uint8, 2)
+        b1 = rand(Uint16)
+        a2 = convert(Uint64, convert(Uint64, a1[1]) << 24 + convert(Uint64, a1[2]) << 16)
+        b2 = convert(Uint64, (1 << 16) | b1)
+        c2 = GF2Poly(a2) % GF2Poly(b2)
+        @test c2.i < b2
+        c1 = rem_big_table(16, b1, a1, make_table(16, b1, 8*sizeof(a1[1])))
+        @test c1 < b2
+        @test c2.i == c1
+        c1 = rem_big_table(16, b1, a1, make_table(16, b1, 16*sizeof(a1[1])))
+        @test c1 < b2
+        @test c2.i == c1
+        print(".")
 
         # a 16th degree polynomial with 3 bytes of data (now 16 bits
         # of padding)

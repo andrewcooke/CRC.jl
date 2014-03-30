@@ -125,20 +125,21 @@ function rem_big_table{G<:Unsigned,D<:Unsigned}(degree::Int, generator::G, data:
     generator, word_shift, carry, rem_mask = check_generator(degree, generator, word_size)
     n_shifts = div(block_size, word_size)
     block_shift = degree - block_size
-    block_mask = convert(G, (1 << block_size) - 1) << block_shift
     remainder::G = zero(G)
     iter = start(data)
-    left_shift = block_size
+    left_shift, right_shift = block_size, block_shift
     while !done(data, iter)
         for i in 1:n_shifts
             if !done(data, iter)
-                remainder = remainder $ (convert(G, word) << word_shift - (i-1) * word_size)
+                shift = word_shift - (i-1) * word_size
+                word, iter = next(data, iter)
+                remainder = remainder $ (convert(G, word) << shift)
             else
-                remainder >>>= word_size
                 left_shift -= word_size
+                right_shift += word_size
             end
-            remainder = rem_mask & ((remainder << left_shift) $ table[1 + (remainder >>> block_shift)])
         end
+        remainder = rem_mask & ((remainder << left_shift) $ table[1 + (remainder >>> right_shift)])
     end
     remainder
 end
