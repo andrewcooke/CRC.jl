@@ -12,7 +12,7 @@
 module CRC
 
 export rem_no_table, make_table, rem_word_table, rem_small_table,
-       rem_big_table
+       rem_big_table, Std, crc
 
 
 function check_generator{G<:Unsigned}(degree::Int, generator::G, chunk_size::Int)
@@ -146,13 +146,30 @@ function rem_big_table{G<:Unsigned,D<:Unsigned}(degree::Int, generator::G, data:
 end
 
 
-type Std{G<:Unsigned, T<:Unsigned}
+type Std{G<:Unsigned}
     poly::G
-    init::G
-    check::G
-    table::Union{Nothing, Vector{T}}
+    block_size::Int
+    table::Vector{G}
+    Std(poly, block_size) = new(poly, block_size)
 end
 
-CITT = Std(0x1021, 0xffff, 0x0000, nothing)
+
+CITT = Std{Uint16}(0x1021, 16)
+
+
+function crc{G<:Unsigned, D<:Unsigned}(std::Std{G}, data::Vector{D})
+    degree = 8*sizeof(G)
+    if !isdefined(std, :table)
+        std.table = make_table(degree, std.poly, std.block_size)
+    end
+    if sizeof(D) == std.block_size
+        return rem_word_table(degree, std.poly, data, std.table)
+    elseif sizeof(D) > std.block_size
+        return rem_small_table(degree, std.poly, data, std.table)
+    else
+        return rem_big_table(degree, std.poly, data, std.table)
+    end
+end
+
 
 end
