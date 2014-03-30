@@ -11,16 +11,17 @@
 
 module CRC
 
-export rem_no_table, make_table, rem_word_table
+export rem_no_table, make_table, rem_word_table, rem_small_table
 
 function check_generator{G<:Unsigned}(degree::Int, generator::G, chunk_size::Int)
     @assert degree <= 8 * sizeof(G) "generator too small for degree"
+    # the shift needed to move something of chunk_size to the msb-1
     shift = degree - chunk_size
     @assert shift >= 0 "polynomial smaller than data chunk"
     # this is carry before shift, so is (implicit) msb / 2
     carry = one(G) << (degree - 1)
-    mask = convert(G, (1 << degree) - 1)
-    (generator & mask, shift, carry, mask)
+    rem_mask = convert(G, (1 << degree) - 1)
+    (generator & rem_mask, shift, carry, rem_mask)
 end
 
 
@@ -31,7 +32,7 @@ end
 
 function rem_no_table{G<:Unsigned,D<:Unsigned}(degree::Int, generator::G, data::Vector{D})
     word_size = 8 * sizeof(D)
-    generator, shift, carry, mask = check_generator(degree, generator, word_size)
+    generator, shift, carry, rem_mask = check_generator(degree, generator, word_size)
     remainder::G = zero(G)
     for word in data
         remainder = remainder $ (convert(G, word) << shift)
@@ -45,7 +46,7 @@ function rem_no_table{G<:Unsigned,D<:Unsigned}(degree::Int, generator::G, data::
     end
     # when the generator is smaller than the data type we don't lose
     # bits by overflow, so trim before returning
-    remainder & mask
+    remainder & rem_mask
 end
 
 
@@ -53,7 +54,7 @@ end
 
 function make_table{G<:Unsigned}(degree::Int, generator::G, table_size::Int)
     @assert table_size < 33 "table too large"  # even this is huge
-    generator, shift, carry, mask = check_generator(degree, generator, table_size)
+    generator, shift, carry, rem_mask = check_generator(degree, generator, table_size)
     size = 2 ^ table_size
     table = Array(G, size)
     for word in 0:(size-1)
@@ -76,11 +77,36 @@ end
 function rem_word_table{G<:Unsigned,D<:Unsigned}(degree::Int, generator::G, data::Vector{D}, table::Vector{G})
     word_size = 8 * sizeof(D)
     @assert 2 ^ word_size == length(table) "wrong sized table"
-    generator, shift, carry, mask = check_generator(degree, generator, word_size)
+    generator, shift, carry, rem_mask = check_generator(degree, generator, word_size)
     remainder::G = zero(G)
     for word in data
         remainder = remainder $ (convert(G, word) << shift)
-        remainder = mask & ((remainder << word_size) $ table[1 + (remainder >>> shift)])
+        remainder = rem_mask & ((remainder << word_size) $ table[1 + (remainder >>> shift)])
+    end
+    remainder
+end
+
+
+# use a table that is smaller than the size of the input data words
+# (for efficiency it must be an exact divisor).
+
+function rem_small_table{G<:Unsigned,D<:Unsigned}(degree::Int, generator::G, data::Vector{D}, table::Vector{G})
+    word_size = 8 * sizeof(D)
+    block_size = iround(log2(length(table)))
+    @assert word_size >= block_size "table too large for input words"
+    @assert word_size % block_size == 0 "table block size is not an exact divisor of input word size"
+    generator, word_shift, carry, rem_mask = check_generator(degree, generator, word_size)
+    n_shifts = div(word_size, block_size)
+    block_shift = degree - block_size
+    block_mask = convert(G, (1 << block_size) - 1) << block_shift
+    remainder::G = zero(G)
+    for word in data
+        tmp = convert(G, word) << word_shift
+        for _ in 1:n_shifts
+            remainder = remainder $ (tmp & block_mask)
+            remainder = rem_mask & ((remainder << block_size) $ table[1 + (remainder >>> block_shift)])
+            tmp <<= block_size
+        end
     end
     remainder
 end
