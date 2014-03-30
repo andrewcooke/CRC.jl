@@ -11,7 +11,8 @@
 
 module CRC
 
-export rem_no_table, make_table, rem_word_table, rem_small_table
+export rem_no_table, make_table, rem_word_table, rem_small_table,
+       rem_big_table
 
 function check_generator{G<:Unsigned}(degree::Int, generator::G, chunk_size::Int)
     @assert degree <= 8 * sizeof(G) "generator too small for degree"
@@ -106,6 +107,37 @@ function rem_small_table{G<:Unsigned,D<:Unsigned}(degree::Int, generator::G, dat
             remainder = remainder $ (tmp & block_mask)
             remainder = rem_mask & ((remainder << block_size) $ table[1 + (remainder >>> block_shift)])
             tmp <<= block_size
+        end
+    end
+    remainder
+end
+
+
+# use a table that is larger than the size of the input data words
+# (for efficiency it must be an exact multiple).
+
+function rem_big_table{G<:Unsigned,D<:Unsigned}(degree::Int, generator::G, data::Vector{D}, table::Vector{G})
+    word_size = 8 * sizeof(D)
+    block_size = iround(log2(length(table)))
+    @assert word_size <= block_size "table too small for input words"
+    @assert block_size % word_size == 0 "table block size is not an exact multiple of input word size"
+    @assert block_size <= degree "table block size is too large for polynomial degree"
+    generator, word_shift, carry, rem_mask = check_generator(degree, generator, word_size)
+    n_shifts = div(block_size, word_size)
+    block_shift = degree - block_size
+    block_mask = convert(G, (1 << block_size) - 1) << block_shift
+    remainder::G = zero(G)
+    iter = start(data)
+    left_shift = block_size
+    while !done(data, iter)
+        for i in 1:n_shifts
+            if !done(data, iter)
+                remainder = remainder $ (convert(G, word) << word_shift - (i-1) * word_size)
+            else
+                remainder >>>= word_size
+                left_shift -= word_size
+            end
+            remainder = rem_mask & ((remainder << left_shift) $ table[1 + (remainder >>> block_shift)])
         end
     end
     remainder
