@@ -80,9 +80,9 @@ rem_no_table{D<:Unsigned, G<:Unsigned}(degree::Int, generator::G, data::Vector{D
 
 function make_table{G<:Unsigned}(degree::Int, generator::G, index_size::Int)
     @assert index_size < 33 "table too large"  # even this is huge
-    generator, carry, rem_mask = layout(degree, generator)
-    index_shift = degree - index_size
-    @assert index_shift >= 0 "index larger than remainder"
+    generator, width, pad, carry, rem_mask = layout(degree, generator)
+    index_shift = width - index_size
+    @assert index_shift >= 0 "index larger than remainder / accumulator"
     size = 2 ^ index_size
     table = Array(G, size)
     for index in 0:(size-1)
@@ -105,14 +105,14 @@ end
 function rem_word_table{D<:Unsigned, G<:Unsigned}(::Type{D}, degree::Int, generator::G, data, table::Vector{G}; init=nothing)
     word_size = 8 * sizeof(D)
     @assert 2 ^ word_size == length(table) "wrong sized table"
-    generator, carry, rem_mask, load = layout(degree, generator, word_size)
-    remainder::G = init == nothing ? zero(G) : init
+    generator, width, pad, carry, rem_mask, load = layout(degree, generator, word_size)
+    remainder::G = init == nothing ? zero(G) : ((init & rem_mask) << pad)
     for word::D in data
         remainder = remainder $ (convert(G, word) << load)
         
-        remainder = rem_mask & ((remainder << word_size) $ table[1 + (remainder >>> load)])
+        remainder = (remainder << word_size) $ table[1 + (remainder >>> load)]
     end
-    remainder
+    (remainder >>> pad) & rem_mask
 end
 
 rem_word_table{D<:Unsigned, G<:Unsigned}(degree::Int, generator::G, data::Vector{D}, table::Vector{G}; init=nothing) = rem_word_table(D, degree, generator, data, table, init=init)

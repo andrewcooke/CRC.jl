@@ -79,6 +79,17 @@ function test_rem_word_table()
         @test c2.i == c1
         print(".")
 
+        # using the same data, a 3rd degree generator with 2 bytes of data.
+        b1 = convert(Uint8, (1 << 3) | (b1 & ((1 << 3) - 1)))
+        a2 = convert(Uint64, convert(Uint64, a1[1]) << 11 + convert(Uint64, a1[2]) << 3)
+        b2 = convert(Uint64, b1)
+        c1 = rem_word_table(3, b1, a1, make_table(3, b1, 8*sizeof(a1[1])))
+        c2 = GF2Poly(a2) % GF2Poly(b2)
+        @test c1 < b2
+        @test c2.i < b2
+        @test c2.i == c1
+        print(".")
+
         # a 16th degree polynomial with 3 bytes of data (now 16 bits
         # of padding)
         a1 = rand(Uint8, 3)
@@ -231,6 +242,9 @@ function test_tests()
             println("\n$(hex(crc(std, TEST))) $(hex(std.test))")
         end
         @test crc(std, TEST) == std.test 
+        print(".")
+        # TODO
+        @test rem_no_table(std.width, std.poly, TEST, init=std.init)
         print(".")
     end
     println("ok")
