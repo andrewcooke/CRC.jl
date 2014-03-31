@@ -198,9 +198,18 @@ function test_rem_big_table()
     println("ok")
 end
 
+function test_tests()
+    print("tests")
+    for std in (CCITT,)
+        @assert crc(std, TEST) == std.test "$(hex(crc(std, TEST))) $(hex(std.test))"
+        print(".")
+    end
+    println("ok")
+end
+
 function time_table_size()
-    CITT_8 = Std{Uint16}(0x1021, 8)
-    CITT_16 = Std{Uint16}(0x1021, 16)
+    CCITT_8 = Std{Uint16}(0x1021, 8)
+    CCITT_16 = Std{Uint16}(0x1021, 16)
     data = rand(Uint8, 100_000_000)
     @assert crc(CITT_8, data) == crc(CITT_16, data)
     @time crc(CITT_8, data)   # 0.46s
@@ -213,6 +222,7 @@ test_rem_no_table()
 test_rem_word_table()
 test_rem_small_table()
 test_rem_big_table()
+test_tests()
 
 #time_table_size()
 

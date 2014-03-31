@@ -12,7 +12,7 @@
 module CRC
 
 export rem_no_table, make_table, rem_word_table, rem_small_table,
-       rem_big_table, Std, crc
+       rem_big_table, Std, crc, TEST, CCITT
 
 
 function check_generator{G<:Unsigned}(degree::Int, generator::G, chunk_size::Int)
@@ -20,7 +20,7 @@ function check_generator{G<:Unsigned}(degree::Int, generator::G, chunk_size::Int
     # the shift needed to move something of chunk_size to the msb-1
     shift = degree - chunk_size
     @assert shift >= 0 "polynomial smaller than data chunk"
-    # this is carry before shift, so is (implicit) msb / 2
+    # this is carry before shift, so is (implicit) msb-1
     carry = one(G) << (degree - 1)
     rem_mask = convert(G, (1 << degree) - 1)
     (generator & rem_mask, shift, carry, rem_mask)
@@ -32,10 +32,10 @@ end
 # we are careful to allow a missing msb in the generator, since that allows
 # 8th degree polynomials to be specified in 8 bits, etc.
 
-function rem_no_table{G<:Unsigned,D<:Unsigned}(degree::Int, generator::G, data::Vector{D})
+function rem_no_table{G<:Unsigned, D<:Unsigned}(degree::Int, generator::G, data::Vector{D}; init=nothing)
     word_size = 8 * sizeof(D)
     generator, shift, carry, rem_mask = check_generator(degree, generator, word_size)
-    remainder::G = zero(G)
+    remainder::G = init == nothing ? zero(G) : init
     for word in data
         remainder = remainder $ (convert(G, word) << shift)
         for _ in 1:word_size
@@ -76,11 +76,11 @@ end
 
 # use a table that matches the size of the input data words.
 
-function rem_word_table{G<:Unsigned,D<:Unsigned}(degree::Int, generator::G, data::Vector{D}, table::Vector{G})
+function rem_word_table{G<:Unsigned, D<:Unsigned}(degree::Int, generator::G, data::Vector{D}, table::Vector{G}; init=nothing)
     word_size = 8 * sizeof(D)
     @assert 2 ^ word_size == length(table) "wrong sized table"
     generator, shift, carry, rem_mask = check_generator(degree, generator, word_size)
-    remainder::G = zero(G)
+    remainder::G = init == nothing ? zero(G) : init
     for word in data
         remainder = remainder $ (convert(G, word) << shift)
         remainder = rem_mask & ((remainder << word_size) $ table[1 + (remainder >>> shift)])
@@ -92,7 +92,7 @@ end
 # use a table that is smaller than the size of the input data words
 # (for efficiency it must be an exact divisor).
 
-function rem_small_table{G<:Unsigned,D<:Unsigned}(degree::Int, generator::G, data::Vector{D}, table::Vector{G})
+function rem_small_table{G<:Unsigned, D<:Unsigned}(degree::Int, generator::G, data::Vector{D}, table::Vector{G}; init=nothing)
     word_size = 8 * sizeof(D)
     block_size = iround(log2(length(table)))
     @assert word_size >= block_size "table too large for input words"
@@ -101,7 +101,7 @@ function rem_small_table{G<:Unsigned,D<:Unsigned}(degree::Int, generator::G, dat
     n_shifts = div(word_size, block_size)
     block_shift = degree - block_size
     block_mask = convert(G, (1 << block_size) - 1) << block_shift
-    remainder::G = zero(G)
+    remainder::G = init == nothing ? zero(G) : init
     for word in data
         tmp = convert(G, word) << word_shift
         for _ in 1:n_shifts
@@ -117,7 +117,7 @@ end
 # use a table that is larger than the size of the input data words
 # (for efficiency it must be an exact multiple).
 
-function rem_big_table{G<:Unsigned,D<:Unsigned}(degree::Int, generator::G, data::Vector{D}, table::Vector{G})
+function rem_big_table{G<:Unsigned, D<:Unsigned}(degree::Int, generator::G, data::Vector{D}, table::Vector{G}; init=nothing)
     word_size = 8 * sizeof(D)
     block_size = iround(log2(length(table)))
     @assert word_size <= block_size "table too small for input words"
@@ -126,7 +126,7 @@ function rem_big_table{G<:Unsigned,D<:Unsigned}(degree::Int, generator::G, data:
     generator, word_shift, carry, rem_mask = check_generator(degree, generator, word_size)
     n_shifts = div(block_size, word_size)
     block_shift = degree - block_size
-    remainder::G = zero(G)
+    remainder::G = init == nothing ? zero(G) : init
     iter = start(data)
     left_shift, right_shift = block_size, block_shift
     while !done(data, iter)
@@ -146,15 +146,25 @@ function rem_big_table{G<:Unsigned,D<:Unsigned}(degree::Int, generator::G, data:
 end
 
 
+TEST = b"123456789"
+
+
 type Std{G<:Unsigned}
+
     poly::G
-    block_size::Int
+    init::G  # initial value
+    block_size::Int  # number of bits used to index the lookup table
+    test::G  # checksum for TEST
+
     table::Vector{G}
-    Std(poly, block_size) = new(poly, block_size)
+
+    Std(poly, init, block_size, test) = new(poly, init, block_size, test)
 end
 
 
-CITT = Std{Uint16}(0x1021, 16)
+# http://www.zlib.net/crc_v3.txt
+# http://stackoverflow.com/questions/1918090/crc-test-vectors-for-crc16-ccitt
+CCITT = Std{Uint16}(0x1021, 0xffff, 16, 0x29b1)
 
 
 function crc{G<:Unsigned, D<:Unsigned}(std::Std{G}, data::Vector{D})
@@ -163,11 +173,11 @@ function crc{G<:Unsigned, D<:Unsigned}(std::Std{G}, data::Vector{D})
         std.table = make_table(degree, std.poly, std.block_size)
     end
     if sizeof(D) == std.block_size
-        return rem_word_table(degree, std.poly, data, std.table)
+        return rem_word_table(degree, std.poly, data, std.table; init=std.init)
     elseif sizeof(D) > std.block_size
-        return rem_small_table(degree, std.poly, data, std.table)
+        return rem_small_table(degree, std.poly, data, std.table; init=std.init)
     else
-        return rem_big_table(degree, std.poly, data, std.table)
+        return rem_big_table(degree, std.poly, data, std.table; init=std.init)
     end
 end
 
