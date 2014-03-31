@@ -165,6 +165,7 @@ end
 # http://www.zlib.net/crc_v3.txt
 # http://stackoverflow.com/questions/1918090/crc-test-vectors-for-crc16-ccitt
 CCITT = Std{Uint16}(0x1021, 0xffff, 16, 0x29b1)
+XMODEM = Std{Uint16}(0x1021, 0x0000, 16, 0x31c3)
 
 
 function crc{G<:Unsigned, D<:Unsigned}(std::Std{G}, data::Vector{D})

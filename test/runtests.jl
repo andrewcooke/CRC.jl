@@ -200,7 +200,7 @@ end
 
 function test_tests()
     print("tests")
-    for std in (CCITT,)
+    for std in (CCITT, XMODEM)
         @assert crc(std, TEST) == std.test "$(hex(crc(std, TEST))) $(hex(std.test))"
         print(".")
     end
