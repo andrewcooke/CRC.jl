@@ -173,7 +173,7 @@ CCITT_1D0F = Std{Uint16}(0x1021, 0x1d0f, 16, 0xe5cc)
 # each byte of the poly?
 # http://www.lammertbies.nl/comm/info/crc-calculation.html
 XMODEM = Std{Uint16}(0x1021, 0x0000, 16, 0x31c3)
-# TODO
+# TODO - is this flip-reversed?!
 KERMIT = Std{Uint16}(0x8408, 0x0000, 16, 0x8921)
 
 function crc{G<:Unsigned, D<:Unsigned}(std::Std{G}, data::Vector{D})
