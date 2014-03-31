@@ -12,8 +12,12 @@
 module CRC
 
 export rem_no_table, make_table, rem_word_table, rem_small_table,
-       rem_big_table, Std, crc, Reverse, reverse,
-       TEST, CCITT, CCITT_1D0F, XMODEM, KERMIT
+       rem_big_table, Std, crc, ReflectWords, reflect, TEST,
+       CRC_16_ARC, CRC_16_AUG_CCITT, CRC_16_BUYPASS,
+       CRC_16_CCITT_FALSE, CRC_16_CDMA2000, CRC_16_DDS_110,
+       CRC_16_DECT_R, CRC_16_EN_13757, CRC_16_GENIBUS, CRC_16_MAXIM,
+       CRC_16_RIELLO, CRC_16_TELEDISK, CRC_16_USB, CRC_16_CRC_A,
+       CRC_16_KERMIT, CRC_16_MODBUS, CRC_16_X_25, CRC_16_XMODEM
 
 import Base: start, done, next
 
@@ -158,29 +162,35 @@ rem_big_table{D<:Unsigned, G<:Unsigned}(degree::Int, generator::G, data::Vector{
 
 
 # http://stackoverflow.com/questions/2602823/in-c-c-whats-the-simplest-way-to-reverse-the-order-of-bits-in-a-byte
-function reverse_bits(n::Uint8)
+function reflect_bits(n::Uint8)
     n = (n & 0xf0) >> 4 | (n & 0x0f) << 4;
     n = (n & 0xcc) >> 2 | (n & 0x33) << 2;
     (n & 0xaa) >> 1 | (n & 0x55) << 1;
 end
 
-REVERSED_8 = Uint8[reverse_bits(i) for i in 0x00:0xff]
+REFLECT_8 = Uint8[reflect_bits(i) for i in 0x00:0xff]
 
-# other types can define reverse too
-reverse(u::Uint8) = REVERSED_8[u+1]
+reflect(u::Uint8) = REFLECT_8[u+1]
 
-# automatically apply revverse() on iteration
+for (T,S) in ((Uint16, Uint8), (Uint32, Uint16), (Uint64, Uint32))
+    n = 8 * sizeof(S)
+    mask::S = -one(S)
+    @eval reflect(u::$T) = (convert($T, reflect(convert($S, u & $mask))) << $n) | reflect(convert($S, (u >>> $n) & $mask))
+end
 
-type Reverse{T}
+
+# automatically reflect individual words on iterations
+
+type ReflectWords{T}
     inner::T
 end
 
-start{T}(r::Reverse{T}) = start(r.inner)
-done{T}(r::Reverse{T}, state) = done(r.inner, state)
+start{T}(r::ReflectWords{T}) = start(r.inner)
+done{T}(r::ReflectWords{T}, state) = done(r.inner, state)
 
-function next{T}(r::Reverse{T}, state)
+function next{T}(r::ReflectWords{T}, state)
     i, state = next(r.inner, state)
-    reverse(i), state
+    reflect(i), state
 end
 
 
@@ -194,38 +204,45 @@ type Std{G<:Unsigned}
     width::Int    # polynomial degree
     poly::G       # generating poly with msb missing
     init::G       # initial remainder
-    refin::Bool   # reverse input
-    refout::Bool  # reverse output
+    refin::Bool   # reflect input
+    refout::Bool  # reflect output
+    xorout::G     # xored with final remainder
     test::G       # checksum for TEST
 
     block_size::Int  # number of bits used to index the lookup table
     table::Vector{G}
 
     # this leaves the table undefined, to be created on first use
-    Std(width::Int, poly::G, init::G, refin::Bool, refout::Bool, test::G, block_size::Int) = new(8*sizeof(G), poly, init, refin, refout, test, block_size)
+    Std(width::Int, poly::G, init::G, refin::Bool, refout::Bool, xorout::G, test::G, block_size::Int) = new(8*sizeof(G), poly, init, refin, refout, xorout, test, block_size)
     
 end
 
-# default width (from polynomial type) and default table (block) size
-Std{G<:Unsigned}(poly::G, init::G, refin::Bool, refout::Bool, test::G) = Std{G}(8*sizeof(G), poly, init, refin, refout, test, DEFAULT_BLOCK_SIZE)
+# default width (from polynomial type), default table (block) size
+Std{G<:Unsigned}(poly::G, init::G, refin::Bool, refout::Bool, xorout::G, test::G) = Std{G}(8*sizeof(G), poly, init, refin, refout, xorout, test, DEFAULT_BLOCK_SIZE)
 
 
-# TODO - REDO
 # http://reveng.sourceforge.net/crc-catalogue/16.htm#crc.cat.crc-16-ccitt-false
+CRC_16_ARC =         Std(0x8005, 0x0000, true,  true,  0x0000, 0xbb3d)
+CRC_16_AUG_CCITT =   Std(0x1021, 0x1d0f, false, false, 0x0000, 0xe5cc)
+CRC_16_BUYPASS   =   Std(0x8005, 0x0000, false, false, 0x0000, 0xfee8)
+CRC_16_CCITT_FALSE = Std(0x1021, 0xffff, false, false, 0x0000, 0x29b1)
+CRC_16_CDMA2000 =    Std(0xc867, 0xffff, false, false, 0x0000, 0x4c06)
+CRC_16_DDS_110 =     Std(0x8005, 0x800d, false, false, 0x0000, 0x9ecf)
+CRC_16_DECT_R =      Std(0x0589, 0x0000, false, false, 0x0001, 0x007e)
+CRC_16_DECT_X =      Std(0x0589, 0x0000, false, false, 0x0000, 0x007f)
+CRC_16_DNP =         Std(0x3d65, 0x0000, true,  true,  0xffff, 0xea82)
+CRC_16_EN_13757 =    Std(0x3d65, 0x0000, false, false, 0xffff, 0xc2b7)
+CRC_16_GENIBUS =     Std(0x1021, 0xffff, false, false, 0xffff, 0xd64e)
+CRC_16_MAXIM =       Std(0x8005, 0x0000, true,  true,  0xffff, 0x44c2)
+CRC_16_RIELLO =      Std(0x8bb7, 0x0000, false, false, 0x0000, 0xd0db)
+CRC_16_TELEDISK =    Std(0x1021, 0x89ec, true,  true,  0x0000, 0x26b1)
+CRC_16_USB =         Std(0x8005, 0xffff, true,  true,  0xffff, 0xb4c8)
+CRC_16_CRC_A =       Std(0x1021, 0xc6c6, true,  true,  0x0000, 0xbf05)
+CRC_16_KERMIT =      Std(0x1021, 0x0000, true,  true,  0x0000, 0x2189)
+CRC_16_MODBUS =      Std(0x8005, 0xffff, true,  true,  0x0000, 0x4b37)
+CRC_16_X_25 =        Std(0x1021, 0xffff, true,  true,  0xffff, 0x906e)
+CRC_16_XMODEM =      Std(0x1021, 0x0000, false, false, 0x0000, 0x31c3)
 
-# http://www.zlib.net/crc_v3.txt
-# http://stackoverflow.com/questions/1918090/crc-test-vectors-for-crc16-ccitt
-CCITT = Std(0x1021, 0xffff, false, false, 0x29b1)
-# http://acooke.org/cute/16bitCRCAl0.html
-# http://www.lammertbies.nl/comm/info/crc-calculation.html
-CCITT_1D0F = Std(0x1021, 0x1d0f, false, false, 0xe5cc)
-# http://acooke.org/cute/16bitCRCAl0.html
-# the "painless reversed" algorithm is equivalent to reversing and reflecting
-# each byte of the poly?
-# http://www.lammertbies.nl/comm/info/crc-calculation.html
-XMODEM = Std(0x1021, 0x0000, false, false, 0x31c3)
-# TODO - is this flip-reversed?!
-KERMIT = Std(0x1201, 0x0000, true, true, 0x2189)
 
 
 function crc{D<:Unsigned, G<:Unsigned}(::Type{D}, std::Std{G}, data)
@@ -234,7 +251,7 @@ function crc{D<:Unsigned, G<:Unsigned}(::Type{D}, std::Std{G}, data)
         std.table = make_table(degree, std.poly, std.block_size)
     end
     if std.refin
-        data = Reverse(data)
+        data = ReflectWords(data)
     end
     if sizeof(D) == std.block_size
         remainder = rem_word_table(D, degree, std.poly, data, std.table; init=std.init)
@@ -243,7 +260,10 @@ function crc{D<:Unsigned, G<:Unsigned}(::Type{D}, std::Std{G}, data)
     else
         remainder = rem_big_table(D, degree, std.poly, data, std.table; init=std.init)
     end
-    remainder
+    if std.refout
+        remainder = reflect(remainder)
+    end
+    remainder $ std.xorout
 end
 
 crc{D<:Unsigned, G<:Unsigned}(std::Std{G}, data::Vector{D}) = crc(D, std, data)

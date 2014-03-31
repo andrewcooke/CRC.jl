@@ -198,10 +198,27 @@ function test_rem_big_table()
     println("ok")
 end
 
+function test_reflect()
+    print("reflect")
+    @test reflect(0b11001010) == 0b01010011
+    @test reflect(0x1234) == 0x2c48
+    @test reflect(0x12345678) == 0x1e6a2c48
+    @test reflect(0x123456789abcdef0) == 0x0f7b3d591e6a2c48
+    @test collect(Uint8, ReflectWords([0x12, 0x34])) == [0x48, 0x2c]
+    println("ok")
+end
+
 function test_tests()
     print("tests")
-    for std in (CCITT, CCITT_1D0F, XMODEM, KERMIT)
-        @assert crc(std, TEST) == std.test "$(hex(crc(std, TEST))) $(hex(std.test))"
+    for std in (CRC_16_ARC, CRC_16_AUG_CCITT, CRC_16_BUYPASS, 
+                CRC_16_CCITT_FALSE, CRC_16_CDMA2000, CRC_16_DDS_110,
+                CRC_16_DECT_R, CRC_16_EN_13757, CRC_16_GENIBUS, CRC_16_MAXIM,
+                CRC_16_RIELLO, CRC_16_TELEDISK, CRC_16_USB, CRC_16_CRC_A,
+                CRC_16_KERMIT, CRC_16_MODBUS, CRC_16_X_25, CRC_16_XMODEM)
+        if crc(std, TEST) != std.test 
+            println("\n$(hex(crc(std, TEST))) $(hex(std.test))")
+        end
+        @test crc(std, TEST) == std.test 
         print(".")
     end
     println("ok")
@@ -211,7 +228,7 @@ function time_table_size()
     CCITT_8 = Std{Uint16}(0x1021, 8)
     CCITT_16 = Std{Uint16}(0x1021, 16)
     data = rand(Uint8, 100_000_000)
-    @assert crc(CITT_8, data) == crc(CITT_16, data)
+    @test crc(CITT_8, data) == crc(CITT_16, data)
     @time crc(CITT_8, data)   # 0.46s
     @time crc(CITT_16, data)  # 0.33s  larger tables are faster
 end
@@ -222,6 +239,7 @@ test_rem_no_table()
 test_rem_word_table()
 test_rem_small_table()
 test_rem_big_table()
+test_reflect()
 test_tests()
 
 #time_table_size()
