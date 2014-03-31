@@ -12,7 +12,8 @@
 module CRC
 
 export rem_no_table, make_table, rem_word_table, rem_small_table,
-       rem_big_table, Std, crc, TEST, CCITT, CCITT_1D0F, XMODEM, KERMIT
+       rem_big_table, Std, crc, reflect,
+       TEST, CCITT, CCITT_1D0F, XMODEM, KERMIT
 
 
 function check_generator{G<:Unsigned}(degree::Int, generator::G, chunk_size::Int)
@@ -145,6 +146,35 @@ function rem_big_table{G<:Unsigned, D<:Unsigned}(degree::Int, generator::G, data
     remainder
 end
 
+# http://stackoverflow.com/questions/2602823/in-c-c-whats-the-simplest-way-to-reverse-the-order-of-bits-in-a-byte
+function reverse(n::Uint8)
+    n = (n & 0xf0) >> 4 | (n & 0x0f) << 4;
+    n = (n & 0xcc) >> 2 | (n & 0x33) << 2;
+    (n & 0xaa) >> 1 | (n & 0x55) << 1;
+end
+
+function reverse_bytes{U<:Unsigned}(n::U)
+    s = sizeof(U)
+    r = zero(U)
+    for i in 1:s
+        b = convert(Uint8, n & 0xff)
+        n >>= 8
+        r |= convert(U, reverse(b)) << (8 * (i-1))
+    end
+    r
+end
+
+function reflect{U<:Unsigned}(n::U)
+    s = sizeof(U)
+    r = zero(U)
+    for _ in 1:s
+        b = convert(Uint8, n & 0xff)
+        n >>= 8
+        r = (r << 8) | convert(U, reverse(b))
+    end
+    r
+end
+
 
 TEST = b"123456789"
 
@@ -162,6 +192,9 @@ type Std{G<:Unsigned}
 end
 
 
+# TODO - REDO
+# http://reveng.sourceforge.net/crc-catalogue/16.htm#crc.cat.crc-16-ccitt-false
+
 # http://www.zlib.net/crc_v3.txt
 # http://stackoverflow.com/questions/1918090/crc-test-vectors-for-crc16-ccitt
 CCITT = Std{Uint16}(0x1021, 0xffff, 16, 0x29b1)
@@ -174,7 +207,8 @@ CCITT_1D0F = Std{Uint16}(0x1021, 0x1d0f, 16, 0xe5cc)
 # http://www.lammertbies.nl/comm/info/crc-calculation.html
 XMODEM = Std{Uint16}(0x1021, 0x0000, 16, 0x31c3)
 # TODO - is this flip-reversed?!
-KERMIT = Std{Uint16}(0x8408, 0x0000, 16, 0x8921)
+KERMIT = Std{Uint16}(0x1201, 0x0000, 16, reverse_bytes(0x2189))
+
 
 function crc{G<:Unsigned, D<:Unsigned}(std::Std{G}, data::Vector{D})
     degree = 8*sizeof(G)
