@@ -12,7 +12,7 @@
 module CRC
 
 export rem_no_table, make_table, rem_word_table, rem_small_table,
-       rem_big_table, Std, crc, TEST, CCITT
+       rem_big_table, Std, crc, TEST, CCITT, CCITT_1D0F, XMODEM, KERMIT
 
 
 function check_generator{G<:Unsigned}(degree::Int, generator::G, chunk_size::Int)
@@ -165,8 +165,16 @@ end
 # http://www.zlib.net/crc_v3.txt
 # http://stackoverflow.com/questions/1918090/crc-test-vectors-for-crc16-ccitt
 CCITT = Std{Uint16}(0x1021, 0xffff, 16, 0x29b1)
+# http://acooke.org/cute/16bitCRCAl0.html
+# http://www.lammertbies.nl/comm/info/crc-calculation.html
+CCITT_1D0F = Std{Uint16}(0x1021, 0x1d0f, 16, 0xe5cc)
+# http://acooke.org/cute/16bitCRCAl0.html
+# the "painless reversed" algorithm is equivalent to reversing and reflecting
+# each byte of the poly?
+# http://www.lammertbies.nl/comm/info/crc-calculation.html
 XMODEM = Std{Uint16}(0x1021, 0x0000, 16, 0x31c3)
-
+# TODO
+KERMIT = Std{Uint16}(0x8408, 0x0000, 16, 0x8921)
 
 function crc{G<:Unsigned, D<:Unsigned}(std::Std{G}, data::Vector{D})
     degree = 8*sizeof(G)
