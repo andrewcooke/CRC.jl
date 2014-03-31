@@ -8,11 +8,14 @@
 # the basic idea is to do a polynomial division along the byte stream.
 # it's all explained very nicely at
 # http://en.wikipedia.org/wiki/Computation_of_cyclic_redundancy_checks
+# and http://www.zlib.net/crc_v3.txt
+
 
 module CRC
 
 export rem_no_table, make_table, rem_word_table, rem_small_table,
        rem_big_table, Std, crc, ReflectWords, reflect, TEST,
+       CRC_3_ROHC,
        CRC_16_ARC, CRC_16_AUG_CCITT, CRC_16_BUYPASS,
        CRC_16_CCITT_FALSE, CRC_16_CDMA2000, CRC_16_DDS_110,
        CRC_16_DECT_R, CRC_16_EN_13757, CRC_16_GENIBUS, CRC_16_MAXIM,
@@ -22,15 +25,21 @@ export rem_no_table, make_table, rem_word_table, rem_small_table,
 import Base: start, done, next
 
 
-function check_generator{G<:Unsigned}(degree::Int, generator::G, chunk_size::Int)
-    @assert degree <= 8 * sizeof(G) "generator too small for degree"
-    # the shift needed to move something of chunk_size to the msb-1
-    shift = degree - chunk_size
-    @assert shift >= 0 "polynomial smaller than data chunk"
+function check_generator{G<:Unsigned}(degree::Int, generator::G)
+    width = 8 * sizeof(G)
+    @assert degree <= width "generator / remainder / accumulator too small for degree"
     # this is carry before shift, so is (implicit) msb-1
     carry = one(G) << (degree - 1)
     rem_mask = convert(G, (1 << degree) - 1)
-    (generator & rem_mask, shift, carry, rem_mask)
+    (generator & rem_mask, carry, rem_mask)
+end
+
+function check_generator{G<:Unsigned}(degree::Int, generator::G, chunk_size::Int)
+    generator, carry, rem_mask = check_generator(degree, generator)
+    # the shift when we load a data word into the remainder / accumulator
+    load = degree - chunk_size
+    @assert load >= 0 "polynomial smaller than data chunk"
+    (generator & rem_mask, carry, rem_mask, load)
 end
 
 
@@ -41,10 +50,10 @@ end
 
 function rem_no_table{D<:Unsigned, G<:Unsigned}(::Type{D}, degree::Int, generator::G, data; init=nothing)
     word_size = 8 * sizeof(D)
-    generator, shift, carry, rem_mask = check_generator(degree, generator, word_size)
+    generator, carry, rem_mask, load = check_generator(degree, generator, word_size)
     remainder::G = init == nothing ? zero(G) : init
     for word in data
-        remainder = remainder $ (convert(G, word) << shift)
+        remainder = remainder $ (convert(G, word) << load)
         for _ in 1:word_size
             if remainder & carry == carry
                 remainder = (remainder << 1) $ generator
@@ -63,21 +72,23 @@ rem_no_table{D<:Unsigned, G<:Unsigned}(degree::Int, generator::G, data::Vector{D
 
 # generate a lookup table of the requested size
 
-function make_table{G<:Unsigned}(degree::Int, generator::G, table_size::Int)
-    @assert table_size < 33 "table too large"  # even this is huge
-    generator, shift, carry, rem_mask = check_generator(degree, generator, table_size)
-    size = 2 ^ table_size
+function make_table{G<:Unsigned}(degree::Int, generator::G, index_size::Int)
+    @assert index_size < 33 "table too large"  # even this is huge
+    generator, carry, rem_mask = check_generator(degree, generator)
+    index_shift = degree - index_size
+    @assert index_shift >= 0 "index larger than remainder"
+    size = 2 ^ index_size
     table = Array(G, size)
-    for word in 0:(size-1)
-        remainder::G = convert(G, word << shift)
-        for _ in 1:table_size
+    for index in 0:(size-1)
+        remainder::G = convert(G, index << index_shift)
+        for _ in 1:index_size
             if remainder & carry == carry
                 remainder = (remainder << 1) $ generator
             else
                 remainder = remainder << 1
             end
         end
-        table[word+1] = remainder
+        table[index+1] = remainder
     end
     table
 end
@@ -88,11 +99,12 @@ end
 function rem_word_table{D<:Unsigned, G<:Unsigned}(::Type{D}, degree::Int, generator::G, data, table::Vector{G}; init=nothing)
     word_size = 8 * sizeof(D)
     @assert 2 ^ word_size == length(table) "wrong sized table"
-    generator, shift, carry, rem_mask = check_generator(degree, generator, word_size)
+    generator, carry, rem_mask, load = check_generator(degree, generator, word_size)
     remainder::G = init == nothing ? zero(G) : init
     for word::D in data
-        remainder = remainder $ (convert(G, word) << shift)
-        remainder = rem_mask & ((remainder << word_size) $ table[1 + (remainder >>> shift)])
+        remainder = remainder $ (convert(G, word) << load)
+        
+        remainder = rem_mask & ((remainder << word_size) $ table[1 + (remainder >>> load)])
     end
     remainder
 end
@@ -105,20 +117,20 @@ rem_word_table{D<:Unsigned, G<:Unsigned}(degree::Int, generator::G, data::Vector
 
 function rem_small_table{D<:Unsigned, G<:Unsigned}(::Type{D}, degree::Int, generator::G, data, table::Vector{G}; init=nothing)
     word_size = 8 * sizeof(D)
-    block_size = iround(log2(length(table)))
-    @assert word_size >= block_size "table too large for input words"
-    @assert word_size % block_size == 0 "table block size is not an exact divisor of input word size"
-    generator, word_shift, carry, rem_mask = check_generator(degree, generator, word_size)
-    n_shifts = div(word_size, block_size)
-    block_shift = degree - block_size
-    block_mask = convert(G, (1 << block_size) - 1) << block_shift
+    index_size = iround(log2(length(table)))
+    @assert word_size >= index_size "table too large for input words"
+    @assert word_size % index_size == 0 "table block size is not an exact divisor of input word size"
+    generator, carry, rem_mask, load = check_generator(degree, generator, word_size)
+    n_shifts = div(word_size, index_size)
+    index_shift = degree - index_size
+    block_mask = convert(G, (1 << index_size) - 1) << index_shift
     remainder::G = init == nothing ? zero(G) : init
     for word::D in data
-        tmp = convert(G, word) << word_shift
+        tmp = convert(G, word) << load
         for _ in 1:n_shifts
             remainder = remainder $ (tmp & block_mask)
-            remainder = rem_mask & ((remainder << block_size) $ table[1 + (remainder >>> block_shift)])
-            tmp <<= block_size
+            remainder = rem_mask & ((remainder << index_size) $ table[1 + (remainder >>> index_shift)])
+            tmp <<= index_size
         end
     end
     remainder
@@ -132,20 +144,20 @@ rem_small_table{D<:Unsigned, G<:Unsigned}(degree::Int, generator::G, data::Vecto
 
 function rem_big_table{D<:Unsigned, G<:Unsigned}(::Type{D}, degree::Int, generator::G, data, table::Vector{G}; init=nothing)
     word_size = 8 * sizeof(D)
-    block_size = iround(log2(length(table)))
-    @assert word_size <= block_size "table too small for input words"
-    @assert block_size % word_size == 0 "table block size is not an exact multiple of input word size"
-    @assert block_size <= degree "table block size is too large for polynomial degree"
-    generator, word_shift, carry, rem_mask = check_generator(degree, generator, word_size)
-    n_shifts = div(block_size, word_size)
-    block_shift = degree - block_size
+    index_size = iround(log2(length(table)))
+    @assert word_size <= index_size "table too small for input words"
+    @assert index_size % word_size == 0 "table block size is not an exact multiple of input word size"
+    @assert index_size <= degree "table block size is too large for polynomial degree"
+    generator, carry, rem_mask, load = check_generator(degree, generator, word_size)
+    n_shifts = div(index_size, word_size)
+    index_shift = degree - index_size
     remainder::G = init == nothing ? zero(G) : init
     iter = start(data)
-    left_shift, right_shift = block_size, block_shift
+    left_shift, right_shift = index_size, index_shift
     while !done(data, iter)
         for i in 1:n_shifts
             if !done(data, iter)
-                shift = word_shift - (i-1) * word_size
+                shift = load - (i-1) * word_size
                 word::D, iter = next(data, iter)
                 remainder = remainder $ (convert(G, word) << shift)
             else
@@ -196,11 +208,12 @@ end
 
 TEST = b"123456789"
 
-DEFAULT_BLOCK_SIZE = 16
+DEFAULT_INDEX_SIZE = 16
 
 
 type Std{G<:Unsigned}
 
+    # http://www.zlib.net/crc_v3.txt
     width::Int    # polynomial degree
     poly::G       # generating poly with msb missing
     init::G       # initial remainder
@@ -209,17 +222,20 @@ type Std{G<:Unsigned}
     xorout::G     # xored with final remainder
     test::G       # checksum for TEST
 
-    block_size::Int  # number of bits used to index the lookup table
+    index_size::Int  # number of bits used to index the lookup table
     table::Vector{G}
 
     # this leaves the table undefined, to be created on first use
-    Std(width::Int, poly::G, init::G, refin::Bool, refout::Bool, xorout::G, test::G, block_size::Int) = new(8*sizeof(G), poly, init, refin, refout, xorout, test, block_size)
+    Std(width::Int, poly::G, init::G, refin::Bool, refout::Bool, xorout::G, test::G, index_size::Int) = new(8*sizeof(G), poly, init, refin, refout, xorout, test, index_size)
     
 end
 
 # default width (from polynomial type), default table (block) size
-Std{G<:Unsigned}(poly::G, init::G, refin::Bool, refout::Bool, xorout::G, test::G) = Std{G}(8*sizeof(G), poly, init, refin, refout, xorout, test, DEFAULT_BLOCK_SIZE)
+Std{G<:Unsigned}(poly::G, init::G, refin::Bool, refout::Bool, xorout::G, test::G) = Std{G}(8*sizeof(G), poly, init, refin, refout, xorout, test, DEFAULT_INDEX_SIZE)
 
+
+# http://reveng.sourceforge.net/crc-catalogue/1-15.htm
+CRC_3_ROHC =         Std{Uint8}(3, 0x03, 0x07, true, true, 0x00, 0x06, 16)
 
 # http://reveng.sourceforge.net/crc-catalogue/16.htm#crc.cat.crc-16-ccitt-false
 CRC_16_ARC =         Std(0x8005, 0x0000, true,  true,  0x0000, 0xbb3d)
@@ -248,14 +264,14 @@ CRC_16_XMODEM =      Std(0x1021, 0x0000, false, false, 0x0000, 0x31c3)
 function crc{D<:Unsigned, G<:Unsigned}(::Type{D}, std::Std{G}, data)
     degree = 8*sizeof(G)
     if !isdefined(std, :table)
-        std.table = make_table(degree, std.poly, std.block_size)
+        std.table = make_table(degree, std.poly, std.index_size)
     end
     if std.refin
         data = ReflectWords(data)
     end
-    if sizeof(D) == std.block_size
+    if sizeof(D) == std.index_size
         remainder = rem_word_table(D, degree, std.poly, data, std.table; init=std.init)
-    elseif sizeof(D) > std.block_size
+    elseif sizeof(D) > std.index_size
         remainder = rem_small_table(D, degree, std.poly, data, std.table; init=std.init)
     else
         remainder = rem_big_table(D, degree, std.poly, data, std.table; init=std.init)
