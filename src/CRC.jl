@@ -125,14 +125,14 @@ function rem_small_table{D<:Unsigned, G<:Unsigned}(::Type{D}, degree::Int, gener
     @assert word_size % index_size == 0 "table index size is not an exact divisor of input word size"
     generator, width, pad, carry, rem_mask, load = layout(degree, generator, word_size)
     n_shifts = div(word_size, index_size)
-    index_shift = degree - index_size
+    index_shift = width - index_size
     block_mask = convert(G, (1 << index_size) - 1) << index_shift
     remainder::G = init == nothing ? zero(G) : ((init & rem_mask) << pad)
     for word::D in data
         tmp = convert(G, word) << load
         for _ in 1:n_shifts
             remainder = remainder $ (tmp & block_mask)
-            remainder = rem_mask & ((remainder << index_size) $ table[1 + (remainder >>> index_shift)])
+            remainder = (remainder << index_size) $ table[1 + (remainder >>> index_shift)]
             tmp <<= index_size
         end
     end
