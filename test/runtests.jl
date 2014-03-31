@@ -198,12 +198,6 @@ function test_rem_big_table()
     println("ok")
 end
 
-function test_reflect()
-    print("reflect")
-    @assert reflect(0x1021) == 0x8408 "$(hex(reflect(0x1201)))"
-    println(".ok")
-end
-
 function test_tests()
     print("tests")
     for std in (CCITT, CCITT_1D0F, XMODEM, KERMIT)
@@ -228,7 +222,6 @@ test_rem_no_table()
 test_rem_word_table()
 test_rem_small_table()
 test_rem_big_table()
-test_reflect()
 test_tests()
 
 #time_table_size()
