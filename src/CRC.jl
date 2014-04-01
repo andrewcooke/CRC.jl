@@ -78,8 +78,8 @@ end
 
 # basic calculation without a table
 
-function rem_no_table{D<:U, A<:U, G<:U}(::Type{D}, acc::Type{A}, degree::Int, generator::G, data; init=nothing)
-    generator::A, width, pad, carry::A, rem_mask::A, load, word_size = layout(D, acc, degree, generator)
+function rem_no_table{D<:U, A<:U, G<:U}(::Type{D}, ::Type{A}, degree::Int, generator::G, data; init=nothing)
+    generator::A, width, pad, carry::A, rem_mask::A, load, word_size = layout(D, A, degree, generator)
     remainder::A = pre_rem(rem_mask, init, pad)
     for word::D in data
         remainder = remainder $ (convert(A, word) << load)
