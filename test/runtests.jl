@@ -334,5 +334,5 @@ test_rem_large_table()
 test_reflect()
 test_tests()
 
-time_table_size()
+#time_table_size()
 
