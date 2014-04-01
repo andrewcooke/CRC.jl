@@ -310,16 +310,19 @@ function test_tests()
 end
 
 function time_table_size()
+    CCITT_8_4 = Std{Uint64, Uint16}(16, 0x1021, 0x0000, false, false, 0x0000, 0x0000, 4)
     CCITT_8_8 = Std{Uint64, Uint16}(16, 0x1021, 0x0000, false, false, 0x0000, 0x0000, 8)
     CCITT_64_8 = Std{Uint64, Uint16}(16, 0x1021, 0x0000, false, false, 0x0000, 0x0000, 8)
     CCITT_16_16 = Std{Uint64, Uint16}(16, 0x1021, 0x0000, false, false, 0x0000, 0x0000, 16)
     CCITT_64_16 = Std{Uint64, Uint16}(16, 0x1021, 0x0000, false, false, 0x0000, 0x0000, 16)
     data = rand(Uint8, 100_000_000)
+    @test crc(CCITT_8_8, data) == crc(CCITT_8_4, data)
     @test crc(CCITT_8_8, data) == crc(CCITT_16_16, data)
     @test crc(CCITT_64_8, data) == crc(CCITT_64_16, data)
 
-    @time crc(CCITT_8_8, data)   # 0.47
-    @time crc(CCITT_64_8, data)  # 0.47
+    @time crc(CCITT_8_4, data)   # 1.1
+    @time crc(CCITT_8_8, data)   # 0.35
+    @time crc(CCITT_64_8, data)  # 0.35
     @time crc(CCITT_16_16, data) # 0.52
     @time crc(CCITT_64_16, data) # 0.52
 end
@@ -335,4 +338,3 @@ test_reflect()
 test_tests()
 
 #time_table_size()
-

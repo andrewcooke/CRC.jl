@@ -302,8 +302,7 @@ end
 
 
 TEST = b"123456789"
-
-DEFAULT_INDEX_SIZE = 16
+MAX_INDEX_SIZE = 16
 DEFAULT_A = Uint
 
 
@@ -326,11 +325,19 @@ type Std{A<:U, P<:U}
     
 end
 
-# default table index size
-Std{P<:U}(width::Int, poly::P, init::P, refin::Bool, refout::Bool, xorout::P, test::P) = Std{DEFAULT_A, P}(width, poly, init, refin, refout, xorout, test, DEFAULT_INDEX_SIZE)
 
-# default width (from polynomial type), default table index size
-Std{P<:U}(poly::P, init::P, refin::Bool, refout::Bool, xorout::P, test::P) = Std{DEFAULT_A, P}(8*sizeof(P), poly, init, refin, refout, xorout, test, DEFAULT_INDEX_SIZE)
+function defaults(width)
+    index_size = min(16, 8 * sizeof(uint(width)))
+    a = uint(index_size)
+    a, index_size
+end
+
+function Std{P<:U}(width::Int, poly::P, init::P, refin::Bool, refout::Bool, xorout::P, test::P)
+    A, index_size = defaults(width)
+    Std{A, P}(width, poly, init, refin, refout, xorout, test, index_size)
+end
+
+Std{P<:U}(poly::P, init::P, refin::Bool, refout::Bool, xorout::P, test::P) = Std(8*sizeof(P), poly, init, refin, refout, xorout, test)
 
 
 # http://reveng.sourceforge.net/crc-catalogue/1-15.htm
@@ -390,6 +397,7 @@ CRC_16_XMODEM =      Std(0x1021, 0x0000, false, false, 0x0000, 0x31c3)
 
 
 
+
 function crc{D<:U, A<:U, P<:U}(::Type{D}, std::Std{A, P}, data)
     if !isdefined(std, :table)
         std.table = make_table(A, std.width, std.poly, std.index_size)
@@ -397,9 +405,10 @@ function crc{D<:U, A<:U, P<:U}(::Type{D}, std::Std{A, P}, data)
     if std.refin
         data = ReflectWords(data)
     end
-    if sizeof(D) == std.index_size
+    word_size = 8 * sizeof(D)
+    if word_size == std.index_size
         remainder = rem_word_table(D, std.width, std.poly, data, std.table; init=std.init)
-    elseif sizeof(D) > std.index_size
+    elseif word_size > std.index_size
         remainder = rem_small_table(D, std.width, std.poly, data, std.table; init=std.init)
     else
         remainder = rem_large_table(D, std.width, std.poly, data, std.table; init=std.init)
