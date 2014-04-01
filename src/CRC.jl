@@ -129,6 +129,7 @@ function rem_small_table{D<:Unsigned, G<:Unsigned}(::Type{D}, degree::Int, gener
     block_mask = convert(G, (1 << index_size) - 1) << index_shift
     remainder::G = init == nothing ? zero(G) : ((init & rem_mask) << pad)
     for word::D in data
+        # TODO - can this be xored just once at the start?
         tmp = convert(G, word) << load
         for _ in 1:n_shifts
             remainder = remainder $ (tmp & block_mask)
@@ -148,13 +149,13 @@ rem_small_table{D<:Unsigned, G<:Unsigned}(degree::Int, generator::G, data::Vecto
 function rem_big_table{D<:Unsigned, G<:Unsigned}(::Type{D}, degree::Int, generator::G, data, table::Vector{G}; init=nothing)
     word_size = 8 * sizeof(D)
     index_size = iround(log2(length(table)))
-    @assert word_size <= index_size "table too small for input words"
-    @assert index_size % word_size == 0 "table block size is not an exact multiple of input word size"
-    @assert index_size <= degree "table block size is too large for polynomial degree"
-    generator, carry, rem_mask, load = layout(degree, generator, word_size)
+    @assert word_size <= index_size "(big) table too small for input words"
+    @assert index_size % word_size == 0 "table index size is not an exact multiple of input word size"
+    generator, width, pad, carry, rem_mask, load = layout(degree, generator, word_size)
+    @assert index_size <= width "table index size is too large for remainder / accumulator"
     n_shifts = div(index_size, word_size)
-    index_shift = degree - index_size
-    remainder::G = init == nothing ? zero(G) : init
+    index_shift = width - index_size
+    remainder::G = init == nothing ? zero(G) : ((init & rem_mask) << pad)
     iter = start(data)
     left_shift, right_shift = index_size, index_shift
     while !done(data, iter)
@@ -168,9 +169,9 @@ function rem_big_table{D<:Unsigned, G<:Unsigned}(::Type{D}, degree::Int, generat
                 right_shift += word_size
             end
         end
-        remainder = rem_mask & ((remainder << left_shift) $ table[1 + (remainder >>> right_shift)])
+        remainder = (remainder << left_shift) $ table[1 + (remainder >>> right_shift)]
     end
-    remainder
+    (remainder >>> pad) & rem_mask
 end
 
 rem_big_table{D<:Unsigned, G<:Unsigned}(degree::Int, generator::G, data::Vector{D}, table::Vector{G}; init=nothing) = rem_big_table(D, degree, generator, data, table, init=init)
