@@ -15,35 +15,79 @@ module CRC
 
 export rem_no_table, make_table, rem_word_table, rem_small_table,
        rem_large_table, Std, crc, ReflectWords, reflect, TEST,
-       CRC_3_ROHC,
-       CRC_16_ARC, CRC_16_AUG_CCITT, CRC_16_BUYPASS,
-       CRC_16_CCITT_FALSE, CRC_16_CDMA2000, CRC_16_DDS_110,
-       CRC_16_DECT_R, CRC_16_EN_13757, CRC_16_GENIBUS, CRC_16_MAXIM,
-       CRC_16_RIELLO, CRC_16_TELEDISK, CRC_16_USB, CRC_16_CRC_A,
-       CRC_16_KERMIT, CRC_16_MODBUS, CRC_16_X_25, CRC_16_XMODEM
+       CRC_3_ROHC, CRC_4_ITU, CRC_5_EPC, CRC_5_ITU, CRC_5_USB,
+       CRC_6_CDMA2000_A, CRC_6_CDMA2000_B, CRC_6_DARC, CRC_6_ITU,
+       CRC_7, CRC_7_ROHC, CRC_8, CRC_8_CDMA2000, CRC_8_DARC,
+       CRC_8_DVB_S2, CRC_8_EBU, CRC_8_I_CODE, CRC_8_ITU, CRC_8_MAXIM,
+       CRC_8_ROHC, CRC_8_WCDMA, CRC_10, CRC_10_CDMA2000, CRC_11,
+       CRC_12_3GPP, CRC_12_CDMA2000, CRC_12_DECT, CRC_13_BBC,
+       CRC_14_DARC, CRC_15, CRC_15_MPT1327, CRC_16_ARC,
+       CRC_16_AUG_CCITT, CRC_16_BUYPASS, CRC_16_CCITT_FALSE,
+       CRC_16_CDMA2000, CRC_16_DDS_110, CRC_16_DECT_R,
+       CRC_16_EN_13757, CRC_16_GENIBUS, CRC_16_MAXIM, CRC_16_RIELLO,
+       CRC_16_TELEDISK, CRC_16_USB, CRC_16_CRC_A, CRC_16_KERMIT,
+       CRC_16_MODBUS, CRC_16_X_25, CRC_16_XMODEM
 
 import Base: start, done, next
 
 
+# types and bit sizes
+#   D/word_size - the input data words (nearly always Uint8)
+#   P - used to store the polynomial (msb optional) and check, also used as
+#       the type of the result
+#   A/width - accumulator / remainder and table value (all vars in inner loop)
+#             (for table-driven routines this is fixed by the table type)
+#   index_size - number of (most significant) bits from A used to index table
+#                (this must be an exact multiple / divisor of word_size)
+#   degree - number of (least significant) bits in P used to specific poly
+#            (plus an implicit msb)
+
 typealias U Unsigned
 
-function largest(T, TS...)
-    @assert issubtype(T, U) "all parametrix types are unsigned ints"
-    for t in TS
-        @assert issubtype(t, U) "all parametrix types are unsigned ints"
-        if sizeof(t) > sizeof(T)
-            T = t
+function uint(size_or_type)
+    if isa(size_or_type, Type) && issubtype(size_or_type, U) && isleaftype(size_or_type)
+        return size_or_type
+    elseif isa(size_or_type, Integer) && size_or_type > 0
+        if size_or_type <= 8
+            return Uint8
+        elseif size_or_type <= 16
+            return Uint16
+        elseif size_or_type <= 32
+            return Uint32
+        elseif size_or_type <= 64
+            return Uint64
+        elseif size_or_type <= 128
+            return Uint128
         end
     end
-    T
+    error("unexpected type / size: $size_or_type ($(typeof(size_or_type)))")
+end
+
+function largest(T, TS...)
+    big = uint(T)
+    for t in map(uint, TS)
+        if sizeof(t) > sizeof(big)
+            big = t
+        end
+    end
+    big
+end
+
+function fastest(T, TS...)
+    l = largest(T, TS...)
+    if l == Uint32 && Uint32 != Uint
+        Uint64  # round up for speed
+    else
+        l
+    end
 end
 
 
 # calculate the layout for the various operations.  
 
-function layout{A<:U, G<:U}(acc::Type{A}, degree::Int, generator::G)
-    @assert largest(A, G) == A "accumulator too small"
-    @assert degree <= 8 * sizeof(G) "polynomial too narrow for degree"
+function check_poly{A<:U, P<:U}(::Type{A}, degree::Int, poly::P)
+    @assert largest(A, degree) == A "accumulator too narrow for degree"
+    @assert largest(P, degree) == P "polynomial too narrow for degree"
     width = 8 * sizeof(A)
     # how many spaces to right of polynomial in accumulator while
     # doing the division
@@ -51,66 +95,90 @@ function layout{A<:U, G<:U}(acc::Type{A}, degree::Int, generator::G)
     # this is carry before shift on padded data
     carry = one(A) << (width - 1)
     # isolate the polynomial (except implicit msb) after padding removed
-    rem_mask = convert(A, (1 << degree) - 1)
-    (convert(A, generator & rem_mask) << pad, width, pad, carry, rem_mask)
+    rem_mask = convert(A, (one(Uint128) << degree) - 1)
+    (convert(A, poly & rem_mask) << pad, width, pad, carry, rem_mask)
 end
 
-function layout{D<:U, A<:U, G<:U}(::Type{D}, acc::Type{A}, degree::Int, generator::G)
-    @assert largest(D, A, G) == A "accumulator too narrow"
-    generator, width, pad, carry, rem_mask = layout(acc, degree, generator)
+function check_poly{D<:U, A<:U, P<:U}(::Type{D}, ::Type{A}, degree::Int, poly::P)
+    @assert largest(D, A) == A "accumulator too narrow for data"
+    poly, width, pad, carry, rem_mask = check_poly(A, degree, poly)
     word_size = 8 * sizeof(D)
     # the shift when we load a data word into the remainder / accumulator
     load = width - word_size
-    (generator, width, pad, carry, rem_mask, load, word_size)
+    (poly, width, pad, carry, rem_mask, load, word_size)
 end
-
-
-# initial value
 
 function pre_rem{A<:U}(rem_mask::A, init, pad)
     init == nothing ? zero(A) : (convert(A, (init & rem_mask)) << pad)
 end
 
-function post_rem{G<:U}(::Type{G}, remainder, rem_mask, pad)
-    convert(G, (remainder >>> pad) & rem_mask)
+function post_rem{P<:U}(::Type{P}, remainder, rem_mask, pad)
+    convert(P, (remainder >>> pad) & rem_mask)
+end
+
+function check_table{A<:U}(table::Vector{A})
+    index_size = iround(log2(length(table)))
+    @assert 2 ^ index_size == length(table) "incorrect table size"
+    @assert index_size <= 8 * sizeof(A) "index wider than accumulator"
+    index_size
+end
+
+function check_word_table{A<:U}(word_size::Int, table::Vector{A})
+    index_size = check_table(table)
+    @assert word_size == index_size "incorrect index size (not word)"
+    index_size
+end
+
+function check_small_table{A<:U}(word_size::Int, table::Vector{A})
+    index_size = check_table(table)
+    @assert word_size >= index_size "incorrect index size (not small)"
+    @assert word_size % index_size == 0 "incorrect index size (not divisor of word size)"
+    index_size
+end
+
+function check_large_table{A<:U}(word_size::Int, table::Vector{A})
+    index_size = check_table(table)
+    @assert word_size <= index_size "incorrect index size (not large)"
+    @assert index_size % word_size == 0 "incorrect index size (not multiple of word size)"
+    index_size
 end
 
 
 # basic calculation without a table
 
-function rem_no_table{D<:U, A<:U, G<:U}(::Type{D}, ::Type{A}, degree::Int, generator::G, data; init=nothing)
-    generator::A, width, pad, carry::A, rem_mask::A, load, word_size = layout(D, A, degree, generator)
+function rem_no_table{D<:U, A<:U, P<:U}(::Type{D}, ::Type{A}, degree::Int, poly::P, data; init=nothing)
+    poly::A, width, pad, carry::A, rem_mask::A, load, word_size = check_poly(D, A, degree, poly)
     remainder::A = pre_rem(rem_mask, init, pad)
     for word::D in data
         remainder = remainder $ (convert(A, word) << load)
         for _ in 1:word_size
             if remainder & carry == carry
-                remainder = (remainder << 1) $ generator
+                remainder = (remainder << 1) $ poly
             else
                 remainder <<= 1
             end
         end
     end
-    post_rem(G, remainder, rem_mask, pad)
+    post_rem(P, remainder, rem_mask, pad)
 end
 
-rem_no_table{D<:U, G<:U}(degree::Int, generator::G, data::Vector{D}; init=nothing) = rem_no_table(D, largest(D, G), degree, generator, data, init=init)
+rem_no_table{D<:U, P<:U}(degree::Int, poly::P, data::Vector{D}; init=nothing) = rem_no_table(D, fastest(D, degree), degree, poly, data, init=init)
 
 
 # generate a lookup table of the requested size
 
-function make_table{G<:U}(degree::Int, generator::G, index_size::Int)
+function make_table{A<:U, P<:U}(::Type{A}, degree::Int, poly::P, index_size::Int)
     @assert index_size < 33 "table too large"  # even this is huge
-    generator, width, pad, carry, rem_mask = layout(degree, generator)
+    poly::A, width, pad, carry::A, rem_mask::A = check_poly(A, degree, poly)
+    @assert largest(A, index_size) == A "accumulator too narrow for index"
     index_shift = width - index_size
-    @assert index_shift >= 0 "index larger than remainder / accumulator"
-    size = 2 ^ index_size
-    table = Array(G, size)
-    for index in 0:(size-1)
-        remainder::G = convert(G, index << index_shift)
+    table_size = 2 ^ index_size
+    table = Array(A, table_size)
+    for index in 0:(table_size-1)
+        remainder::A = convert(A, index << index_shift)
         for _ in 1:index_size
             if remainder & carry == carry
-                remainder = (remainder << 1) $ generator
+                remainder = (remainder << 1) $ poly
             else
                 remainder = remainder << 1
             end
@@ -121,73 +189,67 @@ function make_table{G<:U}(degree::Int, generator::G, index_size::Int)
 end
 
 
-# use a table that matches the size of the input data words.
+# use a table whose index matches the size of the input data words.
 
-function rem_word_table{D<:U, G<:U}(::Type{D}, degree::Int, generator::G, data, table::Vector{G}; init=nothing)
-    word_size = 8 * sizeof(D)
-    @assert 2 ^ word_size == length(table) "wrong sized table"
-    generator, width, pad, carry, rem_mask, load = layout(degree, generator, word_size)
-    remainder::G = init == nothing ? zero(G) : ((init & rem_mask) << pad)
+function rem_word_table{D<:U, A<:U, P<:U}(::Type{D}, degree::Int, poly::P, data, table::Vector{A}; init=nothing)
+    poly::A, width, pad, carry::A, rem_mask::A, load, word_size = check_poly(D, A, degree, poly)
+    index_size = check_word_table(word_size, table)
+
+    remainder::A = pre_rem(rem_mask, init, pad)
     for word::D in data
-        remainder = remainder $ (convert(G, word) << load)
-        
+        remainder = remainder $ (convert(A, word) << load)
         remainder = (remainder << word_size) $ table[1 + (remainder >>> load)]
     end
-    (remainder >>> pad) & rem_mask
+    post_rem(P, remainder, rem_mask, pad)
 end
 
-rem_word_table{D<:U, G<:U}(degree::Int, generator::G, data::Vector{D}, table::Vector{G}; init=nothing) = rem_word_table(D, degree, generator, data, table, init=init)
+rem_word_table{D<:U, A<:U, P<:U}(degree::Int, poly::P, data::Vector{D}, table::Vector{A}; init=nothing) = rem_word_table(D, degree, poly, data, table, init=init)
 
 
-# use a table that is smaller than the size of the input data words
+# use a table whose index is smaller than the size of the input data words
 # (for efficiency it must be an exact divisor).
 
-function rem_small_table{D<:U, G<:U}(::Type{D}, degree::Int, generator::G, data, table::Vector{G}; init=nothing)
-    word_size = 8 * sizeof(D)
-    index_size = iround(log2(length(table)))
-    @assert word_size >= index_size "(small) table too large for input words"
-    @assert word_size % index_size == 0 "table index size is not an exact divisor of input word size"
-    generator, width, pad, carry, rem_mask, load = layout(degree, generator, word_size)
-    n_shifts = div(word_size, index_size)
+function rem_small_table{D<:U, A<:U, P<:U}(::Type{D}, degree::Int, poly::P, data, table::Vector{A}; init=nothing)
+    poly::A, width, pad, carry::A, rem_mask::A, load, word_size = check_poly(D, A, degree, poly)
+    index_size = check_small_table(word_size, table)
     index_shift = width - index_size
-    block_mask = convert(G, (1 << index_size) - 1) << index_shift
-    remainder::G = init == nothing ? zero(G) : ((init & rem_mask) << pad)
+    index_mask::A = convert(A, (one(Uint128) << index_size) - 1) << index_shift
+    n_shifts = div(word_size, index_size)
+
+    remainder::A = pre_rem(rem_mask, init, pad)
     for word::D in data
         # TODO - can this be xored just once at the start?
-        tmp = convert(G, word) << load
+        tmp::A = convert(A, word) << load
         for _ in 1:n_shifts
-            remainder = remainder $ (tmp & block_mask)
+            remainder = remainder $ (tmp & index_mask)
             remainder = (remainder << index_size) $ table[1 + (remainder >>> index_shift)]
             tmp <<= index_size
         end
     end
-    (remainder >>> pad) & rem_mask
+    post_rem(P, remainder, rem_mask, pad)
 end
 
-rem_small_table{D<:U, G<:U}(degree::Int, generator::G, data::Vector{D}, table::Vector{G}; init=nothing) = rem_small_table(D, degree, generator, data, table,init=init)
+rem_small_table{D<:U, A<:U, P<:U}(degree::Int, poly::P, data::Vector{D}, table::Vector{A}; init=nothing) = rem_small_table(D, degree, poly, data, table, init=init)
 
 
-# use a table that is larger than the size of the input data words
-# (for efficiency it must be an exact multiple).
+# use a table whose index is larger than the size of the input data
+# words (for efficiency it must be an exact multiple).
 
-function rem_large_table{D<:U, G<:U}(::Type{D}, degree::Int, generator::G, data, table::Vector{G}; init=nothing)
-    word_size = 8 * sizeof(D)
-    index_size = iround(log2(length(table)))
-    @assert word_size <= index_size "(large) table too small for input words"
-    @assert index_size % word_size == 0 "table index size is not an exact multiple of input word size"
-    generator, width, pad, carry, rem_mask, load = layout(degree, generator, word_size)
-    @assert index_size <= width "table index size is too large for remainder / accumulator"
-    n_shifts = div(index_size, word_size)
+function rem_large_table{D<:U, A<:U, P<:U}(::Type{D}, degree::Int, poly::P, data, table::Vector{A}; init=nothing)
+    poly::A, width, pad, carry::A, rem_mask::A, load, word_size = check_poly(D, A, degree, poly)
+    index_size = check_large_table(word_size, table)
     index_shift = width - index_size
-    remainder::G = init == nothing ? zero(G) : ((init & rem_mask) << pad)
+    n_shifts = div(index_size, word_size)
+
+    remainder::A = pre_rem(rem_mask, init, pad)
     iter = start(data)
     left_shift, right_shift = index_size, index_shift
     while !done(data, iter)
         for i in 1:n_shifts
             if !done(data, iter)
-                shift = load - (i-1) * word_size
                 word::D, iter = next(data, iter)
-                remainder = remainder $ (convert(G, word) << shift)
+                shift = load - (i-1) * word_size
+                remainder = remainder $ (convert(A, word) << shift)
             else
                 left_shift -= word_size
                 right_shift += word_size
@@ -195,10 +257,10 @@ function rem_large_table{D<:U, G<:U}(::Type{D}, degree::Int, generator::G, data,
         end
         remainder = (remainder << left_shift) $ table[1 + (remainder >>> right_shift)]
     end
-    (remainder >>> pad) & rem_mask
+    post_rem(P, remainder, rem_mask, pad)
 end
 
-rem_large_table{D<:U, G<:U}(degree::Int, generator::G, data::Vector{D}, table::Vector{G}; init=nothing) = rem_large_table(D, degree, generator, data, table, init=init)
+rem_large_table{D<:U, A<:U, P<:U}(degree::Int, poly::P, data::Vector{D}, table::Vector{A}; init=nothing) = rem_large_table(D, degree, poly, data, table, init=init)
 
 
 # http://stackoverflow.com/questions/2602823/in-c-c-whats-the-simplest-way-to-reverse-the-order-of-bits-in-a-byte
@@ -218,6 +280,11 @@ for (T,S) in ((Uint16, Uint8), (Uint32, Uint16), (Uint64, Uint32))
     @eval reflect(u::$T) = (convert($T, reflect(convert($S, u & $mask))) << $n) | reflect(convert($S, (u >>> $n) & $mask))
 end
 
+function reflect{T<:U}(size::Int, u::T)
+    width = 8 * sizeof(T)
+    @assert size <= width "cannot reflect a value larger than the representation"
+    u = reflect(u) >>> (width - size)
+end
 
 # automatically reflect individual words on iterations
 
@@ -237,33 +304,67 @@ end
 TEST = b"123456789"
 
 DEFAULT_INDEX_SIZE = 16
+DEFAULT_A = Uint
 
 
-type Std{G<:U}
+type Std{A<:U, P<:U}
 
     # http://www.zlib.net/crc_v3.txt
     width::Int    # polynomial degree
-    poly::G       # generating poly with msb missing
-    init::G       # initial remainder
+    poly::P       # generating poly with msb missing
+    init::P       # initial remainder
     refin::Bool   # reflect input
     refout::Bool  # reflect output
-    xorout::G     # xored with final remainder
-    test::G       # checksum for TEST
+    xorout::P     # xored with final remainder
+    test::P       # checksum for TEST
 
     index_size::Int  # number of bits used to index the lookup table
-    table::Vector{G}
+    table::Vector{A}
 
     # this leaves the table undefined, to be created on first use
-    Std(width::Int, poly::G, init::G, refin::Bool, refout::Bool, xorout::G, test::G, index_size::Int) = new(8*sizeof(G), poly, init, refin, refout, xorout, test, index_size)
+    Std(width::Int, poly::P, init::P, refin::Bool, refout::Bool, xorout::P, test::P, index_size::Int) = new(width, poly, init, refin, refout, xorout, test, index_size)
     
 end
 
-# default width (from polynomial type), default table (block) size
-Std{G<:U}(poly::G, init::G, refin::Bool, refout::Bool, xorout::G, test::G) = Std{G}(8*sizeof(G), poly, init, refin, refout, xorout, test, DEFAULT_INDEX_SIZE)
+# default table index size
+Std{P<:U}(width::Int, poly::P, init::P, refin::Bool, refout::Bool, xorout::P, test::P) = Std{DEFAULT_A, P}(width, poly, init, refin, refout, xorout, test, DEFAULT_INDEX_SIZE)
+
+# default width (from polynomial type), default table index size
+Std{P<:U}(poly::P, init::P, refin::Bool, refout::Bool, xorout::P, test::P) = Std{DEFAULT_A, P}(8*sizeof(P), poly, init, refin, refout, xorout, test, DEFAULT_INDEX_SIZE)
 
 
 # http://reveng.sourceforge.net/crc-catalogue/1-15.htm
-CRC_3_ROHC =         Std{Uint8}(3, 0x03, 0x07, true, true, 0x00, 0x06, 16)
+CRC_3_ROHC =         Std(3, 0x03, 0x07, true,  true,  0x00, 0x06)
+CRC_4_ITU =          Std(4, 0x03, 0x00, true,  true,  0x00, 0x07)
+CRC_5_EPC =          Std(5, 0x09, 0x09, false, false, 0x00, 0x00)
+CRC_5_ITU =          Std(5, 0x15, 0x00, true,  true,  0x00, 0x07)
+CRC_5_USB =          Std(5, 0x05, 0x1f, true,  true,  0x1f, 0x19)
+CRC_6_CDMA2000_A =   Std(6, 0x27, 0x3f, false, false, 0x00, 0x0d)
+CRC_6_CDMA2000_B =   Std(6, 0x07, 0x3f, false, false, 0x00, 0x3b)
+CRC_6_DARC =         Std(6, 0x19, 0x00, true,  true,  0x00, 0x26)
+CRC_6_ITU =          Std(6, 0x03, 0x00, true,  true,  0x00, 0x06)
+CRC_7 =              Std(7, 0x09, 0x00, false, false, 0x00, 0x75)
+CRC_7_ROHC =         Std(7, 0x4f, 0x7f, true,  true,  0x00, 0x53)
+CRC_8 =              Std(8, 0x07, 0x00, false, false, 0x00, 0xf4)
+CRC_8_CDMA2000 =     Std(8, 0x9b, 0xff, false, false, 0x00, 0xda)
+CRC_8_DARC =         Std(8, 0x39, 0x00, true,  true,  0x00, 0x15)
+CRC_8_DVB_S2 =       Std(8, 0xd5, 0x00, false, false, 0x00, 0xbc)
+CRC_8_EBU =          Std(8, 0x1d, 0xff, true,  true,  0x00, 0x97)
+CRC_8_I_CODE =       Std(8, 0x1d, 0xfd, false, false, 0x00, 0x7e)
+CRC_8_ITU =          Std(8, 0x07, 0x00, false, false, 0x55, 0xa1)
+CRC_8_MAXIM =        Std(8, 0x31, 0x00, true,  true,  0x00, 0xa1)
+CRC_8_ROHC =         Std(8, 0x07, 0xff, true,  true,  0x00, 0xd0)
+CRC_8_WCDMA =        Std(8, 0x9b, 0x00, true,  true,  0x00, 0x25)
+CRC_10 =             Std(10, 0x0233, 0x0000, false, false, 0x0000, 0x0199)
+CRC_10_CDMA2000 =    Std(10, 0x03d9, 0x03ff, false, false, 0x0000, 0x0233)
+CRC_11 =             Std(11, 0x0385, 0x001a, false, false, 0x0000, 0x05a3)
+CRC_12_3GPP =        Std(12, 0x080f, 0x0000, false, true,  0x0000, 0x0daf)
+CRC_12_CDMA2000 =    Std(12, 0x0f13, 0x0fff, false, false, 0x0000, 0x0d4d)
+CRC_12_DECT =        Std(12, 0x080f, 0x0000, false, false, 0x0000, 0x0f5b)
+CRC_13_BBC =         Std(13, 0x1cf5, 0x0000, false, false, 0x0000, 0x04fa)
+CRC_14_DARC =        Std(14, 0x0805, 0x0000, true,  true,  0x0000, 0x082d)
+CRC_15 =             Std(15, 0x4599, 0x0000, false, false, 0x0000, 0x059e)
+CRC_15_MPT1327 =     Std(15, 0x6815, 0x0000, false, false, 0x0001, 0x2566)
 
 # http://reveng.sourceforge.net/crc-catalogue/16.htm#crc.cat.crc-16-ccitt-false
 CRC_16_ARC =         Std(0x8005, 0x0000, true,  true,  0x0000, 0xbb3d)
@@ -289,28 +390,27 @@ CRC_16_XMODEM =      Std(0x1021, 0x0000, false, false, 0x0000, 0x31c3)
 
 
 
-function crc{D<:U, G<:U}(::Type{D}, std::Std{G}, data)
-    degree = 8*sizeof(G)
+function crc{D<:U, A<:U, P<:U}(::Type{D}, std::Std{A, P}, data)
     if !isdefined(std, :table)
-        std.table = make_table(degree, std.poly, std.index_size)
+        std.table = make_table(A, std.width, std.poly, std.index_size)
     end
     if std.refin
         data = ReflectWords(data)
     end
     if sizeof(D) == std.index_size
-        remainder = rem_word_table(D, degree, std.poly, data, std.table; init=std.init)
+        remainder = rem_word_table(D, std.width, std.poly, data, std.table; init=std.init)
     elseif sizeof(D) > std.index_size
-        remainder = rem_small_table(D, degree, std.poly, data, std.table; init=std.init)
+        remainder = rem_small_table(D, std.width, std.poly, data, std.table; init=std.init)
     else
-        remainder = rem_large_table(D, degree, std.poly, data, std.table; init=std.init)
+        remainder = rem_large_table(D, std.width, std.poly, data, std.table; init=std.init)
     end
     if std.refout
-        remainder = reflect(remainder)
+        remainder = reflect(std.width, remainder)
     end
     remainder $ std.xorout
 end
 
-crc{D<:U, G<:U}(std::Std{G}, data::Vector{D}) = crc(D, std, data)
+crc{D<:U, A<:U, P<:U}(std::Std{A, P}, data::Vector{D}) = crc(D, std, data)
 
 
 end
