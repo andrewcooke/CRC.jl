@@ -327,9 +327,9 @@ end
 
 
 function defaults(width)
-    index_size = min(16, 8 * sizeof(uint(width)))
-    a = uint(index_size)
-    a, index_size
+    index_size = min(MAX_INDEX_SIZE, 8 * sizeof(uint(width)))
+    A = uint(index_size)
+    A, index_size
 end
 
 function Std{P<:U}(width::Int, poly::P, init::P, refin::Bool, refout::Bool, xorout::P, test::P)
@@ -395,7 +395,7 @@ CRC_16_MODBUS =      Std(0x8005, 0xffff, true,  true,  0x0000, 0x4b37)
 CRC_16_X_25 =        Std(0x1021, 0xffff, true,  true,  0xffff, 0x906e)
 CRC_16_XMODEM =      Std(0x1021, 0x0000, false, false, 0x0000, 0x31c3)
 
-
+ 
 
 
 function crc{D<:U, A<:U, P<:U}(::Type{D}, std::Std{A, P}, data)
