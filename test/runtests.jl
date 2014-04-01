@@ -261,7 +261,7 @@ end
 
 function test_tests()
     print("tests")
-    for std in (#CRC_3_ROHC,
+    for std in (CRC_3_ROHC,
                 CRC_16_ARC, CRC_16_AUG_CCITT, CRC_16_BUYPASS, 
                 CRC_16_CCITT_FALSE, CRC_16_CDMA2000, CRC_16_DDS_110,
                 CRC_16_DECT_R, CRC_16_EN_13757, CRC_16_GENIBUS, CRC_16_MAXIM,
