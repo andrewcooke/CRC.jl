@@ -192,8 +192,8 @@ function test_rem_small_table()
 end
 
 
-function test_rem_big_table()
-    print("rem_big_table")
+function test_rem_large_table()
+    print("rem_large_table")
 
     for _ in 1:10
 
@@ -205,10 +205,10 @@ function test_rem_big_table()
         b2 = convert(Uint64, (1 << 16) | b1)
         c2 = GF2Poly(a2) % GF2Poly(b2)
         @test c2.i < b2
-        c1 = rem_big_table(16, b1, a1, make_table(16, b1, 8*sizeof(a1[1])))
+        c1 = rem_large_table(16, b1, a1, make_table(16, b1, 8*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
-        c1 = rem_big_table(16, b1, a1, make_table(16, b1, 16*sizeof(a1[1])))
+        c1 = rem_large_table(16, b1, a1, make_table(16, b1, 16*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
         print(".")
@@ -220,10 +220,10 @@ function test_rem_big_table()
         b2 = convert(Uint64, b1)
         c2 = GF2Poly(a2) % GF2Poly(b2)
         @test c2.i < b2
-        c1 = rem_big_table(3, b1, a1, make_table(3, b1, 8*sizeof(a1[1])))
+        c1 = rem_large_table(3, b1, a1, make_table(3, b1, 8*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
-        c1 = rem_big_table(3, b1, a1, make_table(3, b1, 16*sizeof(a1[1])))
+        c1 = rem_large_table(3, b1, a1, make_table(3, b1, 16*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
         print(".")
@@ -236,10 +236,10 @@ function test_rem_big_table()
         b2 = convert(Uint64, (1 << 16) | b1)
         c2 = GF2Poly(a2) % GF2Poly(b2)
         @test c2.i < b2
-        c1 = rem_big_table(16, b1, a1, make_table(16, b1, 8*sizeof(a1[1])))
+        c1 = rem_large_table(16, b1, a1, make_table(16, b1, 8*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
-        c1 = rem_big_table(16, b1, a1, make_table(16, b1, 16*sizeof(a1[1])))
+        c1 = rem_large_table(16, b1, a1, make_table(16, b1, 16*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
         print(".")
@@ -293,7 +293,7 @@ srand(0)  # repeatable results
 test_rem_no_table()
 test_rem_word_table()
 test_rem_small_table()
-test_rem_big_table()
+test_rem_large_table()
 test_reflect()
 test_tests()
 

@@ -14,7 +14,7 @@
 module CRC
 
 export rem_no_table, make_table, rem_word_table, rem_small_table,
-       rem_big_table, Std, crc, ReflectWords, reflect, TEST,
+       rem_large_table, Std, crc, ReflectWords, reflect, TEST,
        CRC_3_ROHC,
        CRC_16_ARC, CRC_16_AUG_CCITT, CRC_16_BUYPASS,
        CRC_16_CCITT_FALSE, CRC_16_CDMA2000, CRC_16_DDS_110,
@@ -146,10 +146,10 @@ rem_small_table{D<:Unsigned, G<:Unsigned}(degree::Int, generator::G, data::Vecto
 # use a table that is larger than the size of the input data words
 # (for efficiency it must be an exact multiple).
 
-function rem_big_table{D<:Unsigned, G<:Unsigned}(::Type{D}, degree::Int, generator::G, data, table::Vector{G}; init=nothing)
+function rem_large_table{D<:Unsigned, G<:Unsigned}(::Type{D}, degree::Int, generator::G, data, table::Vector{G}; init=nothing)
     word_size = 8 * sizeof(D)
     index_size = iround(log2(length(table)))
-    @assert word_size <= index_size "(big) table too small for input words"
+    @assert word_size <= index_size "(large) table too small for input words"
     @assert index_size % word_size == 0 "table index size is not an exact multiple of input word size"
     generator, width, pad, carry, rem_mask, load = layout(degree, generator, word_size)
     @assert index_size <= width "table index size is too large for remainder / accumulator"
@@ -174,7 +174,7 @@ function rem_big_table{D<:Unsigned, G<:Unsigned}(::Type{D}, degree::Int, generat
     (remainder >>> pad) & rem_mask
 end
 
-rem_big_table{D<:Unsigned, G<:Unsigned}(degree::Int, generator::G, data::Vector{D}, table::Vector{G}; init=nothing) = rem_big_table(D, degree, generator, data, table, init=init)
+rem_large_table{D<:Unsigned, G<:Unsigned}(degree::Int, generator::G, data::Vector{D}, table::Vector{G}; init=nothing) = rem_large_table(D, degree, generator, data, table, init=init)
 
 
 # http://stackoverflow.com/questions/2602823/in-c-c-whats-the-simplest-way-to-reverse-the-order-of-bits-in-a-byte
@@ -278,7 +278,7 @@ function crc{D<:Unsigned, G<:Unsigned}(::Type{D}, std::Std{G}, data)
     elseif sizeof(D) > std.index_size
         remainder = rem_small_table(D, degree, std.poly, data, std.table; init=std.init)
     else
-        remainder = rem_big_table(D, degree, std.poly, data, std.table; init=std.init)
+        remainder = rem_large_table(D, degree, std.poly, data, std.table; init=std.init)
     end
     if std.refout
         remainder = reflect(remainder)
