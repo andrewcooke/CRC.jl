@@ -2,6 +2,12 @@ using CRC
 using Base.Test
 using IntModN
 
+function test_largest()
+    @assert CRC.largest(Uint8, Uint8) == Uint8
+    @assert CRC.largest(Uint8, Uint16) == Uint16
+    @assert CRC.largest(Uint16, Uint8) == Uint16
+end
+
 function test_rem_no_table()
     print("rem_no_table")
 
@@ -290,6 +296,7 @@ end
 
 
 srand(0)  # repeatable results
+test_largest()
 test_rem_no_table()
 test_rem_word_table()
 test_rem_small_table()
