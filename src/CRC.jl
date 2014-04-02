@@ -332,7 +332,7 @@ end
 
 function defaults(width)
     index_size = min(MAX_INDEX_SIZE, 8 * sizeof(to_uint(width)))
-    index_size = 8
+#    index_size = 8
     A = to_uint(width)
     A, index_size
 end

@@ -333,13 +333,17 @@ function time_table_size()
 end
 
 function time_libz()
+    # this assumes data are pre-reflected
+    CRC_32X = Std(0x04c11db7, 0xffffffff, false,  true,  0xffffffff, 0xcbf43926)
     data = rand(Uint8, 10_000_000)
+    datax = collect(Uint8, map(reflect, data))
     @assert crc32(data) == crc(CRC_32, data)
+    @assert crc32(data) == crc(CRC_32X, datax)
     data = rand(Uint8, 10_000_000)
-    # depressing - seems to be reflection per byte (doesn't change much with 
-    # word size table, allocates a pile of data)
-    @time crc32(data)        # 0.008
-    @time crc(CRC_32, data)  # 0.9
+    datax = collect(Uint8, map(reflect, data))
+    @time crc32(data)         # 0.008
+    @time crc(CRC_32, data)   # 0.9
+    @time crc(CRC_32X, datax) # 0.04  doesn't change much with word_table
 end
 
 
