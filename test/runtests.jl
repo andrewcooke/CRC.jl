@@ -333,28 +333,43 @@ function time_table_size()
 end
 
 function time_libz()
+
     # this assumes data are pre-reflected
-    CRC_32X = Std(0x04c11db7, 0xffffffff, false,  true,  0xffffffff, 0xcbf43926)
-    data = rand(Uint8, 10_000_000)
+    CRC_32X_32_8 = Std{Uint32, Uint32}(32, 0x04c11db7, 0xffffffff, false,  true,  0xffffffff, 0xcbf43926, 8)
+    CRC_32X_32_16 = Std{Uint32, Uint32}(32, 0x04c11db7, 0xffffffff, false,  true,  0xffffffff, 0xcbf43926, 16)
+    CRC_32X_64_8 = Std{Uint64, Uint32}(32, 0x04c11db7, 0xffffffff, false,  true,  0xffffffff, 0xcbf43926, 8)
+    CRC_32X_64_16 = Std{Uint64, Uint32}(32, 0x04c11db7, 0xffffffff, false,  true,  0xffffffff, 0xcbf43926, 16)
+
+    data = rand(Uint8, 100_000_000)
     datax = collect(Uint8, map(reflect, data))
-    @assert crc32(data) == crc(CRC_32, data)
-    @assert crc32(data) == crc(CRC_32X, datax)
-    data = rand(Uint8, 10_000_000)
-    datax = collect(Uint8, map(reflect, data))
-    @time crc32(data)         # 0.008
-    @time crc(CRC_32, data)   # 0.9
-    @time crc(CRC_32X, datax) # 0.04  doesn't change much with word_table
+    check = crc32(data)
+    @assert crc(CRC_32, data) == check
+    @assert crc(CRC_32X_32_8, datax) == check
+    @assert crc(CRC_32X_32_16, datax) == check
+    @assert crc(CRC_32X_64_8, datax) == check
+    @assert crc(CRC_32X_64_16, datax) == check
+
+    @time crc32(data)               # 0.09
+#    @time crc(CRC_32, data)         # 9
+    @time crc(CRC_32X_32_8, datax)  # 0.29
+    @time crc(CRC_32X_32_16, datax) # 0.39
+    @time crc(CRC_32X_64_8, datax)  # 0.35
+    @time crc(CRC_32X_64_16, datax) # 0.53
 end
 
 
 srand(0)  # repeatable results
-#test_largest()
-#test_rem_no_table()
-#test_rem_word_table()
-#test_rem_small_table()
-#test_rem_large_table()
-#test_reflect()
-#test_tests()
 
+function tests()
+    test_largest()
+    test_rem_no_table()
+    test_rem_word_table()
+    test_rem_small_table()
+    test_rem_large_table()
+    test_reflect()
+    test_tests()
+end
+
+tests()
 #time_table_size()
-time_libz()
+#time_libz()

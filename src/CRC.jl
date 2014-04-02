@@ -201,8 +201,11 @@ function rem_word_table{D<:U, A<:U, P<:U}(::Type{D}, degree::Int, poly::P, data,
 
     remainder::A = pre_rem(rem_mask, init, pad)
     for word::D in data
-        remainder = remainder $ (convert(A, word) << load)
-        remainder = (remainder << word_size) $ table[1 + (remainder >>> load)]
+        word $= convert(D, remainder >>> load)
+        remainder = (remainder << word_size) $ table[1 + word]
+        # original, very slightly slower
+#        remainder = remainder $ (convert(A, word) << load)
+#        remainder = (remainder << word_size) $ table[1 + (remainder >>> load)]
     end
     post_rem(P, remainder, rem_mask, pad)
 end
