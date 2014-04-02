@@ -13,20 +13,24 @@
 
 module CRC
 
-export rem_no_table, make_table, rem_word_table, rem_small_table,
-       rem_large_table, Std, crc, ReflectWords, reflect, TEST,
-       CRC_3_ROHC, CRC_4_ITU, CRC_5_EPC, CRC_5_ITU, CRC_5_USB,
-       CRC_6_CDMA2000_A, CRC_6_CDMA2000_B, CRC_6_DARC, CRC_6_ITU,
-       CRC_7, CRC_7_ROHC, CRC_8, CRC_8_CDMA2000, CRC_8_DARC,
-       CRC_8_DVB_S2, CRC_8_EBU, CRC_8_I_CODE, CRC_8_ITU, CRC_8_MAXIM,
-       CRC_8_ROHC, CRC_8_WCDMA, CRC_10, CRC_10_CDMA2000, CRC_11,
-       CRC_12_3GPP, CRC_12_CDMA2000, CRC_12_DECT, CRC_13_BBC,
+export to_uint, rem_no_table, make_table, rem_word_table,
+       rem_small_table, rem_large_table, Std, crc, ReflectWords,
+       reflect, TEST, CRC_3_ROHC, CRC_4_ITU, CRC_5_EPC, CRC_5_ITU,
+       CRC_5_USB, CRC_6_CDMA2000_A, CRC_6_CDMA2000_B, CRC_6_DARC,
+       CRC_6_ITU, CRC_7, CRC_7_ROHC, CRC_8, CRC_8_CDMA2000,
+       CRC_8_DARC, CRC_8_DVB_S2, CRC_8_EBU, CRC_8_I_CODE, CRC_8_ITU,
+       CRC_8_MAXIM, CRC_8_ROHC, CRC_8_WCDMA, CRC_10, CRC_10_CDMA2000,
+       CRC_11, CRC_12_3GPP, CRC_12_CDMA2000, CRC_12_DECT, CRC_13_BBC,
        CRC_14_DARC, CRC_15, CRC_15_MPT1327, CRC_16_ARC,
        CRC_16_AUG_CCITT, CRC_16_BUYPASS, CRC_16_CCITT_FALSE,
        CRC_16_CDMA2000, CRC_16_DDS_110, CRC_16_DECT_R,
        CRC_16_EN_13757, CRC_16_GENIBUS, CRC_16_MAXIM, CRC_16_RIELLO,
        CRC_16_TELEDISK, CRC_16_USB, CRC_16_CRC_A, CRC_16_KERMIT,
-       CRC_16_MODBUS, CRC_16_X_25, CRC_16_XMODEM
+       CRC_16_MODBUS, CRC_16_X_25, CRC_16_XMODEM, CRC_24,
+       CRC_24_FLEXRAY_A, CRC_24_FLEXRAY_B, CRC_31_PHILIPS, CRC_32,
+       CRC_32_BZIP2, CRC_32_C, CRC_32_D, CRC_32_MPEG_2, CRC_32_POSIX,
+       CRC_32_Q, CRC_32_JAMCRC, CRC_32_XFER, CRC_40_GSM, CRC_64,
+       CRC_64_WE, CRC_64_XZ, CRC_82_DARC
 
 import Base: start, done, next
 
@@ -44,7 +48,7 @@ import Base: start, done, next
 
 typealias U Unsigned
 
-function uint(size_or_type)
+function to_uint(size_or_type)
     if isa(size_or_type, Type) && issubtype(size_or_type, U) && isleaftype(size_or_type)
         return size_or_type
     elseif isa(size_or_type, Integer) && size_or_type > 0
@@ -64,8 +68,8 @@ function uint(size_or_type)
 end
 
 function largest(T, TS...)
-    big = uint(T)
-    for t in map(uint, TS)
+    big = to_uint(T)
+    for t in map(to_uint, TS)
         if sizeof(t) > sizeof(big)
             big = t
         end
@@ -175,7 +179,7 @@ function make_table{A<:U, P<:U}(::Type{A}, degree::Int, poly::P, index_size::Int
     table_size = 2 ^ index_size
     table = Array(A, table_size)
     for index in 0:(table_size-1)
-        remainder::A = convert(A, index << index_shift)
+        remainder::A = convert(A, index) << index_shift
         for _ in 1:index_size
             if remainder & carry == carry
                 remainder = (remainder << 1) $ poly
@@ -274,7 +278,7 @@ REFLECT_8 = Uint8[reflect_bits(i) for i in 0x00:0xff]
 
 reflect(u::Uint8) = REFLECT_8[u+1]
 
-for (T,S) in ((Uint16, Uint8), (Uint32, Uint16), (Uint64, Uint32))
+for (T,S) in ((Uint16, Uint8), (Uint32, Uint16), (Uint64, Uint32), (Uint128, Uint64))
     n = 8 * sizeof(S)
     mask::S = -one(S)
     @eval reflect(u::$T) = (convert($T, reflect(convert($S, u & $mask))) << $n) | reflect(convert($S, (u >>> $n) & $mask))
@@ -327,8 +331,8 @@ end
 
 
 function defaults(width)
-    index_size = min(MAX_INDEX_SIZE, 8 * sizeof(uint(width)))
-    A = uint(index_size)
+    index_size = min(MAX_INDEX_SIZE, 8 * sizeof(to_uint(width)))
+    A = to_uint(width)
     A, index_size
 end
 
@@ -352,16 +356,16 @@ CRC_6_DARC =         Std(6, 0x19, 0x00, true,  true,  0x00, 0x26)
 CRC_6_ITU =          Std(6, 0x03, 0x00, true,  true,  0x00, 0x06)
 CRC_7 =              Std(7, 0x09, 0x00, false, false, 0x00, 0x75)
 CRC_7_ROHC =         Std(7, 0x4f, 0x7f, true,  true,  0x00, 0x53)
-CRC_8 =              Std(8, 0x07, 0x00, false, false, 0x00, 0xf4)
-CRC_8_CDMA2000 =     Std(8, 0x9b, 0xff, false, false, 0x00, 0xda)
-CRC_8_DARC =         Std(8, 0x39, 0x00, true,  true,  0x00, 0x15)
-CRC_8_DVB_S2 =       Std(8, 0xd5, 0x00, false, false, 0x00, 0xbc)
-CRC_8_EBU =          Std(8, 0x1d, 0xff, true,  true,  0x00, 0x97)
-CRC_8_I_CODE =       Std(8, 0x1d, 0xfd, false, false, 0x00, 0x7e)
-CRC_8_ITU =          Std(8, 0x07, 0x00, false, false, 0x55, 0xa1)
-CRC_8_MAXIM =        Std(8, 0x31, 0x00, true,  true,  0x00, 0xa1)
-CRC_8_ROHC =         Std(8, 0x07, 0xff, true,  true,  0x00, 0xd0)
-CRC_8_WCDMA =        Std(8, 0x9b, 0x00, true,  true,  0x00, 0x25)
+CRC_8 =              Std(0x07, 0x00, false, false, 0x00, 0xf4)
+CRC_8_CDMA2000 =     Std(0x9b, 0xff, false, false, 0x00, 0xda)
+CRC_8_DARC =         Std(0x39, 0x00, true,  true,  0x00, 0x15)
+CRC_8_DVB_S2 =       Std(0xd5, 0x00, false, false, 0x00, 0xbc)
+CRC_8_EBU =          Std(0x1d, 0xff, true,  true,  0x00, 0x97)
+CRC_8_I_CODE =       Std(0x1d, 0xfd, false, false, 0x00, 0x7e)
+CRC_8_ITU =          Std(0x07, 0x00, false, false, 0x55, 0xa1)
+CRC_8_MAXIM =        Std(0x31, 0x00, true,  true,  0x00, 0xa1)
+CRC_8_ROHC =         Std(0x07, 0xff, true,  true,  0x00, 0xd0)
+CRC_8_WCDMA =        Std(0x9b, 0x00, true,  true,  0x00, 0x25)
 CRC_10 =             Std(10, 0x0233, 0x0000, false, false, 0x0000, 0x0199)
 CRC_10_CDMA2000 =    Std(10, 0x03d9, 0x03ff, false, false, 0x0000, 0x0233)
 CRC_11 =             Std(11, 0x0385, 0x001a, false, false, 0x0000, 0x05a3)
@@ -395,7 +399,25 @@ CRC_16_MODBUS =      Std(0x8005, 0xffff, true,  true,  0x0000, 0x4b37)
 CRC_16_X_25 =        Std(0x1021, 0xffff, true,  true,  0xffff, 0x906e)
 CRC_16_XMODEM =      Std(0x1021, 0x0000, false, false, 0x0000, 0x31c3)
 
- 
+# http://reveng.sourceforge.net/crc-catalogue/17plus.htm
+CRC_24 =             Std(24, 0x00864cfb, 0x00b704ce, false, false, 0x00000000, 0x0021cf02)
+CRC_24_FLEXRAY_A =   Std(24, 0x005d6dcb, 0x00fedcba, false, false, 0x00000000, 0x007979bd)
+CRC_24_FLEXRAY_B =   Std(24, 0x005d6dcb, 0x00abcdef, false, false, 0x00000000, 0x001f23b8)
+CRC_31_PHILIPS =     Std(31, 0x04c11db7, 0x7fffffff, false, false, 0x7fffffff, 0x0ce9e46c)
+CRC_32 =             Std(0x04c11db7, 0xffffffff, true,  true,  0xffffffff, 0xcbf43926)
+CRC_32_BZIP2 =       Std(0x04c11db7, 0xffffffff, false, false, 0xffffffff, 0xfc891918)
+CRC_32_C =           Std(0x1edc6f41, 0xffffffff, true,  true,  0xffffffff, 0xe3069283)
+CRC_32_D =           Std(0xa833982b, 0xffffffff, true,  true,  0xffffffff, 0x87315576)
+CRC_32_MPEG_2 =      Std(0x04c11db7, 0xffffffff, false, false, 0x00000000, 0x0376e6e7)
+CRC_32_POSIX =       Std(0x04c11db7, 0x00000000, false, false, 0xffffffff, 0x765e7680)
+CRC_32_Q =           Std(0x814141ab, 0x00000000, false, false, 0x00000000, 0x3010bf7f)
+CRC_32_JAMCRC =      Std(0x04c11db7, 0xffffffff, true,  true,  0x00000000, 0x340bc6d9)
+CRC_32_XFER =        Std(0x000000af, 0x00000000, false, false, 0x00000000, 0xbd0be338)
+CRC_40_GSM =         Std(40, 0x0000000004820009, 0x0000000000000000, false, false, 0x000000ffffffffff, 0x000000d4164fc646)
+CRC_64 =             Std(0x42f0e1eba9ea3693, 0x0000000000000000, false, false, 0x0000000000000000, 0x6c40df5f0b497347)
+CRC_64_WE =          Std(0x42f0e1eba9ea3693, 0xffffffffffffffff, false, false, 0xffffffffffffffff, 0x62ec59e3f1a4f00a)
+CRC_64_XZ =          Std(0x42f0e1eba9ea3693, 0xffffffffffffffff, true,  true,  0xffffffffffffffff, 0x995dc9bbdf1939fa)
+CRC_82_DARC =        Std(82, 0x0308c0111011401440411, 0x000000000000000000000, true,  true,   0x000000000000000000000, 0x09ea83f625023801fd612)
 
 
 function crc{D<:U, A<:U, P<:U}(::Type{D}, std::Std{A, P}, data)
