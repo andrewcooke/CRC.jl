@@ -1,6 +1,7 @@
 using CRC
 using Base.Test
 using IntModN
+import Zlib: crc32
 
 function test_largest()
     @assert CRC.largest(Uint8, Uint8) == Uint8
@@ -331,14 +332,25 @@ function time_table_size()
     @time crc(CCITT_64_16, data) # 0.52
 end
 
+function time_libz()
+    data = rand(Uint8, 10_000_000)
+    @assert crc32(data) == crc(CRC_32, data)
+    data = rand(Uint8, 10_000_000)
+    # depressing - seems to be reflection per byte (doesn't change much with 
+    # word size table, allocates a pile of data)
+    @time crc32(data)        # 0.008
+    @time crc(CRC_32, data)  # 0.9
+end
+
 
 srand(0)  # repeatable results
-test_largest()
-test_rem_no_table()
-test_rem_word_table()
-test_rem_small_table()
-test_rem_large_table()
-test_reflect()
-test_tests()
+#test_largest()
+#test_rem_no_table()
+#test_rem_word_table()
+#test_rem_small_table()
+#test_rem_large_table()
+#test_reflect()
+#test_tests()
 
 #time_table_size()
+time_libz()

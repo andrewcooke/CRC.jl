@@ -292,7 +292,7 @@ end
 
 # automatically reflect individual words on iterations
 
-type ReflectWords{T}
+immutable ReflectWords{T}
     inner::T
 end
 
@@ -332,6 +332,7 @@ end
 
 function defaults(width)
     index_size = min(MAX_INDEX_SIZE, 8 * sizeof(to_uint(width)))
+    index_size = 8
     A = to_uint(width)
     A, index_size
 end
