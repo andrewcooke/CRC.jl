@@ -200,6 +200,9 @@ function rem_word_table{D<:U, A<:U, P<:U}(::Type{D}, degree::Int, poly::P, data,
     index_size = check_word_table(word_size, table)
 
     remainder::A = pre_rem(rem_mask, init, pad)
+    # direct indexing (assuming array) does not change speed
+#    for i in 1:length(data)
+#        word::D = data[i]
     for word::D in data
         word $= convert(D, remainder >>> load)
         remainder = (remainder << word_size) $ table[1 + word]

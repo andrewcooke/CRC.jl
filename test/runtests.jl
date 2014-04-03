@@ -370,6 +370,6 @@ function tests()
     test_tests()
 end
 
-tests()
+#tests()
 #time_table_size()
-#time_libz()
+time_libz()
