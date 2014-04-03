@@ -221,18 +221,18 @@ function make_table{A<:U, P<:U
     @assert largest(A, index_size) == A "accumulator too narrow for index"
 
     poly::A, init::A, width, pad, carry::A, rem_mask::A = 
-        check_poly(A, degree, poly, 0, refin)
+        check_poly(A, degree, poly, 0, false)  # reflect below
     index_shift = width - index_size
     table_size = 2 ^ index_size
     table = Array(A, table_size)
     # TODO - reverse logic as refin case simpler and faster
-    for index in 0:(table_size-1)
+    for index in zero(Uint64):convert(Uint64, table_size-1)
         remainder::A = convert(A, index) << index_shift
         for _ in 1:index_size
             if remainder & carry == carry
                 remainder = (remainder << 1) $ poly
             else
-                remainder = remainder << 1
+                remainder <<= 1
             end
         end
         if refin
@@ -267,7 +267,8 @@ end
 rem_word_table{D<:U, A<:U, P<:U
                }(degree, poly::P, data::Vector{D}, table::Vector{A};
                  init=0, refin=false, refout=false) = 
-                 rem_word_table(D, degree, poly, data, table, init=init)
+                 rem_word_table(D, degree, poly, data, table, 
+                                init=init, refin=refin, refout=refout)
 
 function loop_word_ref{D<:U, A<:U
                        }(::Type{D}, remainder::A, data, table::Vector{A}, word_size)
