@@ -128,13 +128,13 @@ function check_poly{D<:U, A<:U, P<:U
     (poly, init, width, pad, carry, rem_mask, load, word_size)
 end
 
-function post_rem{P<:U
-                  }(::Type{P}, degree, remainder, rem_mask, pad, refin, refout)
+function fix_remainder{P<:U
+                       }(::Type{P}, degree, remainder, rem_mask, pad, refin, refout)
     remainder = convert(P, (remainder >>> pad) & rem_mask)
     (refin $ refout) ? reflect(degree, remainder) : remainder
 end
 
-function check_table{A<:U}(table::Vector{A})
+function measure_table{A<:U}(table::Vector{A})
     index_size = iround(log2(length(table)))
     @assert 2 ^ index_size == length(table) "incorrect table size"
     @assert index_size <= 8 * sizeof(A) "index wider than accumulator"
@@ -143,21 +143,15 @@ end
 
 # TODO - move back to routines below
 
-function check_word_table{A<:U}(word_size::Int, table::Vector{A})
-    index_size = check_table(table)
-    @assert word_size == index_size "incorrect index size (not word)"
-    index_size
-end
-
-function check_small_table{A<:U}(word_size::Int, table::Vector{A})
-    index_size = check_table(table)
+function check_small_table{A<:U}(word_size, table::Vector{A})
+    index_size = measure_table(table)
     @assert word_size >= index_size "incorrect index size (not small)"
     @assert word_size % index_size == 0 "incorrect index size (not divisor of word size)"
     index_size
 end
 
-function check_large_table{A<:U}(word_size::Int, table::Vector{A})
-    index_size = check_table(table)
+function check_large_table{A<:U}(word_size, table::Vector{A})
+    index_size = measure_table(table)
     @assert word_size <= index_size "incorrect index size (not large)"
     @assert index_size % word_size == 0 "incorrect index size (not multiple of word size)"
     index_size
@@ -167,21 +161,22 @@ end
 # basic calculation without a table
 
 function rem_no_table{D<:U, A<:U, P<:U
-                      }(::Type{D}, ::Type{A}, degree::Int, poly::P, data; 
+                      }(::Type{D}, ::Type{A}, degree, poly::P, data; 
                         init=0, refin=false, refout=false)
+
     poly::A, init::A, width, pad, carry::A, rem_mask::A, load, word_size = 
         check_poly(D, A, degree, poly, init, refin)
-    remainder::A = init
+
     if refin
-        remainder = loop_no_table_ref(D, poly, remainder, data, word_size)
+        remainder = loop_no_table_ref(D, poly, init, data, word_size)
     else
-        remainder = loop_no_table(D, poly, remainder, data, carry, word_size, load)
+        remainder = loop_no_table(D, poly, init, data, carry, word_size, load)
     end
-    post_rem(P, degree, remainder, rem_mask, pad, refin, refout)
+    fix_remainder(P, degree, remainder, rem_mask, pad, refin, refout)
 end
 
 rem_no_table{D<:U, P<:U
-             }(degree::Int, poly::P, data::Vector{D}; 
+             }(degree, poly::P, data::Vector{D}; 
                init=0, refin=false, refout=false) = 
                rem_no_table(D, fastest(D, degree), degree, poly, data, 
                             init=init, refin=refin, refout=refout)
@@ -189,7 +184,7 @@ rem_no_table{D<:U, P<:U
 function loop_no_table_ref{D<:U, A<:U
                            }(::Type{D}, poly::A, remainder::A, data, word_size)
     for word::D in data
-        remainder = remainder $ convert(A, word)
+        remainder::A = remainder $ convert(A, word)
         for _ in 1:word_size
             if remainder & one(A) == one(A)
                 remainder = (remainder >>>= 1) $ poly
@@ -204,7 +199,7 @@ end
 function loop_no_table{D<:U, A<:U
                        }(::Type{D}, poly::A, remainder::A, data, carry::A, word_size, load)
     for word::D in data
-        remainder = remainder $ (convert(A, word) << load)
+        remainder::A = remainder $ (convert(A, word) << load)
         for _ in 1:word_size
             if remainder & carry == carry
                 remainder = (remainder << 1) $ poly
@@ -219,13 +214,18 @@ end
 
 # generate a lookup table of the requested size
 
-function make_table{A<:U, P<:U}(::Type{A}, degree::Int, poly::P, index_size::Int)
+function make_table{A<:U, P<:U
+                    }(::Type{A}, degree, poly::P, index_size, refin)
+
     @assert index_size < 33 "table too large"  # even this is huge
-    poly::A, width, pad, carry::A, rem_mask::A = check_poly(A, degree, poly)
     @assert largest(A, index_size) == A "accumulator too narrow for index"
+
+    poly::A, init::A, width, pad, carry::A, rem_mask::A = 
+        check_poly(A, degree, poly, 0, refin)
     index_shift = width - index_size
     table_size = 2 ^ index_size
     table = Array(A, table_size)
+    # TODO - reverse logic as refin case simpler and faster
     for index in 0:(table_size-1)
         remainder::A = convert(A, index) << index_shift
         for _ in 1:index_size
@@ -235,7 +235,11 @@ function make_table{A<:U, P<:U}(::Type{A}, degree::Int, poly::P, index_size::Int
                 remainder = remainder << 1
             end
         end
-        table[index+1] = remainder
+        if refin
+            table[reflect(index_size, index)+1] = reflect(remainder)
+        else
+            table[index+1] = remainder
+        end
     end
     table
 end
@@ -243,31 +247,52 @@ end
 
 # use a table whose index matches the size of the input data words.
 
-function rem_word_table{D<:U, A<:U, P<:U}(::Type{D}, degree::Int, poly::P, data, table::Vector{A}; init=0)
-    poly::A, width, pad, carry::A, rem_mask::A, load, word_size = check_poly(D, A, degree, poly)
-    index_size = check_word_table(word_size, table)
+function rem_word_table{D<:U, A<:U, P<:U
+                        }(::Type{D}, degree, poly::P, data, table::Vector{A}; 
+                          init=0, refin=false, refout=false)
 
-    remainder::A = pre_rem(rem_mask, init, pad)
-    # direct indexing (assuming array) does not change speed
-#    for i in 1:length(data)
-#        word::D = data[i]
+    poly::A, init::A, width, pad, carry::A, rem_mask::A, load, word_size = 
+        check_poly(D, A, degree, poly, init, refin)
+    index_size = measure_table(table)
+    @assert word_size == index_size "incorrect index size (not word)"
+
+    if refin
+        remainder = loop_word_ref(D, init, data, table, word_size)
+    else
+        remainder = loop_word(D, init, data, table, load, word_size)
+    end
+    fix_remainder(P, degree, remainder, rem_mask, pad, refin, refout)
+end
+
+rem_word_table{D<:U, A<:U, P<:U
+               }(degree, poly::P, data::Vector{D}, table::Vector{A};
+                 init=0, refin=false, refout=false) = 
+                 rem_word_table(D, degree, poly, data, table, init=init)
+
+function loop_word_ref{D<:U, A<:U
+                       }(::Type{D}, remainder::A, data, table::Vector{A}, word_size)
+    for word::D in data
+        word $= convert(D, remainder)
+        remainder = (remainder >>> word_size) $ table[1 + word]
+    end
+    remainder
+end
+
+function loop_word{D<:U, A<:U
+                   }(::Type{D}, remainder::A, data, table::Vector{A}, load, word_size)
     for word::D in data
         word $= convert(D, remainder >>> load)
         remainder = (remainder << word_size) $ table[1 + word]
-        # original, very slightly slower
-#        remainder = remainder $ (convert(A, word) << load)
-#        remainder = (remainder << word_size) $ table[1 + (remainder >>> load)]
     end
-    post_rem(P, remainder, rem_mask, pad)
+    remainder
 end
 
-rem_word_table{D<:U, A<:U, P<:U}(degree::Int, poly::P, data::Vector{D}, table::Vector{A}; init=0) = rem_word_table(D, degree, poly, data, table, init=init)
 
 
 # use a table whose index is smaller than the size of the input data words
 # (for efficiency it must be an exact divisor).
 
-function rem_small_table{D<:U, A<:U, P<:U}(::Type{D}, degree::Int, poly::P, data, table::Vector{A}; init=0)
+function rem_small_table{D<:U, A<:U, P<:U}(::Type{D}, degree, poly::P, data, table::Vector{A}; init=0)
     poly::A, width, pad, carry::A, rem_mask::A, load, word_size = check_poly(D, A, degree, poly)
     index_size = check_small_table(word_size, table)
     index_shift = width - index_size
@@ -284,16 +309,16 @@ function rem_small_table{D<:U, A<:U, P<:U}(::Type{D}, degree::Int, poly::P, data
             tmp <<= index_size
         end
     end
-    post_rem(P, remainder, rem_mask, pad)
+    fix_remainder(P, remainder, rem_mask, pad)
 end
 
-rem_small_table{D<:U, A<:U, P<:U}(degree::Int, poly::P, data::Vector{D}, table::Vector{A}; init=0) = rem_small_table(D, degree, poly, data, table, init=init)
+rem_small_table{D<:U, A<:U, P<:U}(degree, poly::P, data::Vector{D}, table::Vector{A}; init=0) = rem_small_table(D, degree, poly, data, table, init=init)
 
 
 # use a table whose index is larger than the size of the input data
 # words (for efficiency it must be an exact multiple).
 
-function rem_large_table{D<:U, A<:U, P<:U}(::Type{D}, degree::Int, poly::P, data, table::Vector{A}; init=0)
+function rem_large_table{D<:U, A<:U, P<:U}(::Type{D}, degree, poly::P, data, table::Vector{A}; init=0)
     poly::A, width, pad, carry::A, rem_mask::A, load, word_size = check_poly(D, A, degree, poly)
     index_size = check_large_table(word_size, table)
     index_shift = width - index_size
@@ -315,10 +340,10 @@ function rem_large_table{D<:U, A<:U, P<:U}(::Type{D}, degree::Int, poly::P, data
         end
         remainder = (remainder << left_shift) $ table[1 + (remainder >>> right_shift)]
     end
-    post_rem(P, remainder, rem_mask, pad)
+    fix_remainder(P, remainder, rem_mask, pad)
 end
 
-rem_large_table{D<:U, A<:U, P<:U}(degree::Int, poly::P, data::Vector{D}, table::Vector{A}; init=0) = rem_large_table(D, degree, poly, data, table, init=init)
+rem_large_table{D<:U, A<:U, P<:U}(degree, poly::P, data::Vector{D}, table::Vector{A}; init=0) = rem_large_table(D, degree, poly, data, table, init=init)
 
 
 # http://stackoverflow.com/questions/2602823/in-c-c-whats-the-simplest-way-to-reverse-the-order-of-bits-in-a-byte
