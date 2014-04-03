@@ -87,37 +87,51 @@ function fastest(T, TS...)
 end
 
 
-# calculate the layout for the various operations.  
+# common support for calculations
 
-function check_poly{A<:U, P<:U}(::Type{A}, degree::Int, poly::P)
+function check_poly{A<:U, P<:U
+                    }(::Type{A}, degree, poly::P, init, refin)
+
     @assert largest(A, degree) == A "accumulator too narrow for degree"
     @assert largest(P, degree) == P "polynomial too narrow for degree"
-    width = 8 * sizeof(A)
+
     # how many spaces to right of polynomial in accumulator while
     # doing the division
-    pad = width - degree
-    # this is carry before shift on padded data
-    carry = one(A) << (width - 1)
+    width = 8 * sizeof(A)
+    pad = refin ? 0 : width - degree
+
+    # carry before shift on padded data
+    carry::A = refin ? 1 : one(A) << (width - 1)
+
     # isolate the polynomial (except implicit msb) after padding removed
-    rem_mask = convert(A, (one(Uint128) << degree) - 1)
-    (convert(A, poly & rem_mask) << pad, width, pad, carry, rem_mask)
+    rem_mask::A = convert(A, (one(Uint128) << degree) - 1)
+
+    # init and poly both need converting and then padding or reflecting
+    init::A = convert(A, init & rem_mask) << pad
+    init = refin ? reflect(degree, init) : init
+    poly::A = convert(A, poly & rem_mask) << pad
+    poly = refin ? reflect(degree, poly) : poly
+
+    (poly, init, width, pad, carry, rem_mask)
 end
 
-function check_poly{D<:U, A<:U, P<:U}(::Type{D}, ::Type{A}, degree::Int, poly::P)
+function check_poly{D<:U, A<:U, P<:U
+                    }(::Type{D}, ::Type{A}, degree, poly::P, init, refin)
+
     @assert largest(D, A) == A "accumulator too narrow for data"
-    poly, width, pad, carry, rem_mask = check_poly(A, degree, poly)
-    word_size = 8 * sizeof(D)
+    poly, init, width, pad, carry, rem_mask = check_poly(A, degree, poly, init, refin)
+
     # the shift when we load a data word into the remainder / accumulator
-    load = width - word_size
-    (poly, width, pad, carry, rem_mask, load, word_size)
+    word_size = 8 * sizeof(D)
+    load = refin ? 0 : width - word_size
+
+    (poly, init, width, pad, carry, rem_mask, load, word_size)
 end
 
-function pre_rem{A<:U}(rem_mask::A, init, pad)
-    init == nothing ? zero(A) : (convert(A, (init & rem_mask)) << pad)
-end
-
-function post_rem{P<:U}(::Type{P}, remainder, rem_mask, pad)
-    convert(P, (remainder >>> pad) & rem_mask)
+function post_rem{P<:U
+                  }(::Type{P}, degree, remainder, rem_mask, pad, refin, refout)
+    remainder = convert(P, (remainder >>> pad) & rem_mask)
+    (refin $ refout) ? reflect(degree, remainder) : remainder
 end
 
 function check_table{A<:U}(table::Vector{A})
@@ -126,6 +140,8 @@ function check_table{A<:U}(table::Vector{A})
     @assert index_size <= 8 * sizeof(A) "index wider than accumulator"
     index_size
 end
+
+# TODO - move back to routines below
 
 function check_word_table{A<:U}(word_size::Int, table::Vector{A})
     index_size = check_table(table)
@@ -150,9 +166,43 @@ end
 
 # basic calculation without a table
 
-function rem_no_table{D<:U, A<:U, P<:U}(::Type{D}, ::Type{A}, degree::Int, poly::P, data; init=nothing)
-    poly::A, width, pad, carry::A, rem_mask::A, load, word_size = check_poly(D, A, degree, poly)
-    remainder::A = pre_rem(rem_mask, init, pad)
+function rem_no_table{D<:U, A<:U, P<:U
+                      }(::Type{D}, ::Type{A}, degree::Int, poly::P, data; 
+                        init=0, refin=false, refout=false)
+    poly::A, init::A, width, pad, carry::A, rem_mask::A, load, word_size = 
+        check_poly(D, A, degree, poly, init, refin)
+    remainder::A = init
+    if refin
+        remainder = loop_no_table_ref(D, poly, remainder, data, word_size)
+    else
+        remainder = loop_no_table(D, poly, remainder, data, carry, word_size, load)
+    end
+    post_rem(P, degree, remainder, rem_mask, pad, refin, refout)
+end
+
+rem_no_table{D<:U, P<:U
+             }(degree::Int, poly::P, data::Vector{D}; 
+               init=0, refin=false, refout=false) = 
+               rem_no_table(D, fastest(D, degree), degree, poly, data, 
+                            init=init, refin=refin, refout=refout)
+
+function loop_no_table_ref{D<:U, A<:U
+                           }(::Type{D}, poly::A, remainder::A, data, word_size)
+    for word::D in data
+        remainder = remainder $ convert(A, word)
+        for _ in 1:word_size
+            if remainder & one(A) == one(A)
+                remainder = (remainder >>>= 1) $ poly
+            else
+                remainder >>>= 1
+            end
+        end
+    end
+    remainder
+end
+
+function loop_no_table{D<:U, A<:U
+                       }(::Type{D}, poly::A, remainder::A, data, carry::A, word_size, load)
     for word::D in data
         remainder = remainder $ (convert(A, word) << load)
         for _ in 1:word_size
@@ -163,10 +213,8 @@ function rem_no_table{D<:U, A<:U, P<:U}(::Type{D}, ::Type{A}, degree::Int, poly:
             end
         end
     end
-    post_rem(P, remainder, rem_mask, pad)
+    remainder
 end
-
-rem_no_table{D<:U, P<:U}(degree::Int, poly::P, data::Vector{D}; init=nothing) = rem_no_table(D, fastest(D, degree), degree, poly, data, init=init)
 
 
 # generate a lookup table of the requested size
@@ -195,7 +243,7 @@ end
 
 # use a table whose index matches the size of the input data words.
 
-function rem_word_table{D<:U, A<:U, P<:U}(::Type{D}, degree::Int, poly::P, data, table::Vector{A}; init=nothing)
+function rem_word_table{D<:U, A<:U, P<:U}(::Type{D}, degree::Int, poly::P, data, table::Vector{A}; init=0)
     poly::A, width, pad, carry::A, rem_mask::A, load, word_size = check_poly(D, A, degree, poly)
     index_size = check_word_table(word_size, table)
 
@@ -213,13 +261,13 @@ function rem_word_table{D<:U, A<:U, P<:U}(::Type{D}, degree::Int, poly::P, data,
     post_rem(P, remainder, rem_mask, pad)
 end
 
-rem_word_table{D<:U, A<:U, P<:U}(degree::Int, poly::P, data::Vector{D}, table::Vector{A}; init=nothing) = rem_word_table(D, degree, poly, data, table, init=init)
+rem_word_table{D<:U, A<:U, P<:U}(degree::Int, poly::P, data::Vector{D}, table::Vector{A}; init=0) = rem_word_table(D, degree, poly, data, table, init=init)
 
 
 # use a table whose index is smaller than the size of the input data words
 # (for efficiency it must be an exact divisor).
 
-function rem_small_table{D<:U, A<:U, P<:U}(::Type{D}, degree::Int, poly::P, data, table::Vector{A}; init=nothing)
+function rem_small_table{D<:U, A<:U, P<:U}(::Type{D}, degree::Int, poly::P, data, table::Vector{A}; init=0)
     poly::A, width, pad, carry::A, rem_mask::A, load, word_size = check_poly(D, A, degree, poly)
     index_size = check_small_table(word_size, table)
     index_shift = width - index_size
@@ -239,13 +287,13 @@ function rem_small_table{D<:U, A<:U, P<:U}(::Type{D}, degree::Int, poly::P, data
     post_rem(P, remainder, rem_mask, pad)
 end
 
-rem_small_table{D<:U, A<:U, P<:U}(degree::Int, poly::P, data::Vector{D}, table::Vector{A}; init=nothing) = rem_small_table(D, degree, poly, data, table, init=init)
+rem_small_table{D<:U, A<:U, P<:U}(degree::Int, poly::P, data::Vector{D}, table::Vector{A}; init=0) = rem_small_table(D, degree, poly, data, table, init=init)
 
 
 # use a table whose index is larger than the size of the input data
 # words (for efficiency it must be an exact multiple).
 
-function rem_large_table{D<:U, A<:U, P<:U}(::Type{D}, degree::Int, poly::P, data, table::Vector{A}; init=nothing)
+function rem_large_table{D<:U, A<:U, P<:U}(::Type{D}, degree::Int, poly::P, data, table::Vector{A}; init=0)
     poly::A, width, pad, carry::A, rem_mask::A, load, word_size = check_poly(D, A, degree, poly)
     index_size = check_large_table(word_size, table)
     index_shift = width - index_size
@@ -270,14 +318,14 @@ function rem_large_table{D<:U, A<:U, P<:U}(::Type{D}, degree::Int, poly::P, data
     post_rem(P, remainder, rem_mask, pad)
 end
 
-rem_large_table{D<:U, A<:U, P<:U}(degree::Int, poly::P, data::Vector{D}, table::Vector{A}; init=nothing) = rem_large_table(D, degree, poly, data, table, init=init)
+rem_large_table{D<:U, A<:U, P<:U}(degree::Int, poly::P, data::Vector{D}, table::Vector{A}; init=0) = rem_large_table(D, degree, poly, data, table, init=init)
 
 
 # http://stackoverflow.com/questions/2602823/in-c-c-whats-the-simplest-way-to-reverse-the-order-of-bits-in-a-byte
 function reflect_bits(n::Uint8)
-    n = (n & 0xf0) >> 4 | (n & 0x0f) << 4;
-    n = (n & 0xcc) >> 2 | (n & 0x33) << 2;
-    (n & 0xaa) >> 1 | (n & 0x55) << 1;
+    n = (n & 0xf0) >>> 4 | (n & 0x0f) << 4;
+    n = (n & 0xcc) >>> 2 | (n & 0x33) << 2;
+    (n & 0xaa) >>> 1 | (n & 0x55) << 1;
 end
 
 REFLECT_8 = Uint8[reflect_bits(i) for i in 0x00:0xff]
@@ -290,7 +338,7 @@ for (T,S) in ((Uint16, Uint8), (Uint32, Uint16), (Uint64, Uint32), (Uint128, Uin
     @eval reflect(u::$T) = (convert($T, reflect(convert($S, u & $mask))) << $n) | reflect(convert($S, (u >>> $n) & $mask))
 end
 
-function reflect{T<:U}(size::Int, u::T)
+function reflect{T<:U}(size, u::T)
     width = 8 * sizeof(T)
     @assert size <= width "cannot reflect a value larger than the representation"
     u = reflect(u) >>> (width - size)
