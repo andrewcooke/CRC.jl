@@ -348,12 +348,13 @@ function rem_large_table{D<:U, A<:U, P<:U
     index_size = measure_table(table)
     @assert word_size <= index_size "incorrect index size (not large)"
     @assert index_size % word_size == 0 "incorrect index size (not multiple of word size)"
-    index_shift = width - index_size
+    index_shift = refin ? 0 : width - index_size
     index_mask::A = convert(A, (one(Uint128) << index_size) - 1) << index_shift
     n_shifts = div(index_size, word_size)
 
     if refin
-        remainder = loop_large_table_ref()
+        remainder = loop_large_table_ref(D, init, data, table, word_size,
+                                         n_shifts, index_size, index_mask)
     else
         remainder = loop_large_table(D, init, data, table, load, word_size,
                                      n_shifts, index_size, index_shift)
@@ -367,7 +368,21 @@ rem_large_table{D<:U, A<:U, P<:U
                   rem_large_table(D, degree, poly, data, table, 
                                   init=init, refin=refin, refout=refout)
 
-function loop_large_table_ref()
+function loop_large_table_ref{D<:U, A<:U
+                              }(::Type{D}, remainder::A, data, table::Vector{A},
+                                word_size, n_shifts, index_size, index_mask)
+    iter = start(data)
+    while !done(data, iter)
+        for i in 1:n_shifts
+            if !done(data, iter)
+                word::D, iter = next(data, iter)
+                shift = (i-1) * word_size
+                remainder = remainder $ (convert(A, word) << shift)
+            end
+        end
+        remainder = (remainder >>> index_size) $ table[1 + (remainder & index_mask)]
+    end
+    remainder
 end
 
 function loop_large_table{D<:U, A<:U

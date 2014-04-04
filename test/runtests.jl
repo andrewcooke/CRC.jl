@@ -250,6 +250,16 @@ function test_rem_large_table()
         @test c2.i == c1
         print(".")
 
+        # now swap the bytes and use refin
+        a1r = collect(Uint8, map(reflect, a1))
+        c1r = rem_large_table(16, b1, a1r, make_table(Uint16, 16, b1, 8*sizeof(a1r[1]), refin=true), refin=true)
+        @test c1r < b2
+        @test c2.i == c1r
+        c1r = rem_large_table(16, b1, a1r, make_table(Uint64, 16, b1, 16*sizeof(a1r[1]), refin=true), refin=true)
+        @test c1r < b2
+        @test c2.i == c1r
+        print(".")
+
         # using the same data, a 3rd degree generator with 2 bytes of data.
         # but use 16 bits so we can use a 16 bit table
         b1 = convert(Uint16, (1 << 3) | (b1 & ((1 << 3) - 1)))
