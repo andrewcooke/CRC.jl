@@ -20,7 +20,7 @@ Redundancy Checksums (CRCs).
 
 ## Examples
 
-### Calculate a CRC32 Hash
+### Calculate a CRC-32 Hash
 
 ```
 julia> using CRC
