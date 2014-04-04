@@ -491,7 +491,6 @@ type Spec{P<:U}
     test::P       # checksum for TEST
 end
 
-
 Spec{P<:U}(poly::P, init::P, refin::Bool, refout::Bool, xorout::P, test::P) = 
     Spec(8*sizeof(P), poly, init, refin, refout, xorout, test)
 
