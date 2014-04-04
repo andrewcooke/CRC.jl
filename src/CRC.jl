@@ -10,8 +10,6 @@
 # http://en.wikipedia.org/wiki/Computation_of_cyclic_redundancy_checks
 # and http://www.zlib.net/crc_v3.txt
 
-# TODO - would @inbounds help in the loops?
-
 
 module CRC
 
@@ -88,6 +86,12 @@ function fastest(T, TS...)
     end
 end
 
+function itype(iterable)
+    for i in iterable
+        return typeof(i)
+    end
+end
+
 
 # common support for calculations
 
@@ -147,10 +151,7 @@ function measure_table{A<:U}(table::Vector{A})
 end
 
 function check_data{D<:U}(::Type{D}, data)
-    for d in data
-        @assert isa(d, D) "data not of correct size ($D / $(typeof(d))))"
-        return
-    end
+    @assert itype(data) == D "data not of correct size ($D / $(typeof(d))))"
 end
 
 
@@ -478,9 +479,6 @@ end
 
 
 TEST = b"123456789"
-#MAX_INDEX_SIZE = 16
-#DEFAULT_A = Uint
-
 
 type Spec{P<:U}
     # http://www.zlib.net/crc_v3.txt
@@ -604,18 +602,20 @@ function crc{D<:U, A<:U, P<:U}(spec::Spec{P}, ::Type{D}, ::Type{A};
     end
 end
 
-crc{D<:U, P<:U}(spec::Spec{P}, ::Type{D}; 
-                table=true, index_size=8) = crc(spec, D, Uint64)
+crc{D<:U, P<:U
+    }(spec::Spec{P}, ::Type{D}; table=true, index_size=8) =
+        crc(spec, D, fastest(D, P, index_size))
 
 
 # single shot (table not cached)
 
-crc{D<:U, A<:U, P<:U}(spec::Spec{P}, data::Vector{D}, ::Type{A}; 
-                      table=true, index_size=8) = 
+crc{D<:U, A<:U, P<:U}(spec::Spec{P}, data::Vector{D}, ::Type{A};
+                      table=true, index_size=8) =
     crc(spec, D, A, table=table, index_size=index_size)(data)
 
-crc{D<:U, P<:U}(spec::Spec{P}, data::Vector{D}; 
-                table=true, index_size=8) = 
-    crc(spec, data, Uint64, table=table, index_size=index_size)
+crc{D<:U, P<:U}(spec::Spec{P}, data::Vector{D};
+                table=true, index_size=8) =
+                    crc(spec, data, fastest(D, P, index_size), 
+                        table=table, index_size=index_size)
 
 end
