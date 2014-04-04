@@ -143,13 +143,6 @@ end
 
 # TODO - move back to routines below
 
-function check_small_table{A<:U}(word_size, table::Vector{A})
-    index_size = measure_table(table)
-    @assert word_size >= index_size "incorrect index size (not small)"
-    @assert word_size % index_size == 0 "incorrect index size (not divisor of word size)"
-    index_size
-end
-
 function check_large_table{A<:U}(word_size, table::Vector{A})
     index_size = measure_table(table)
     @assert word_size <= index_size "incorrect index size (not large)"
@@ -286,31 +279,54 @@ function loop_word{D<:U, A<:U
 end
 
 
-
 # use a table whose index is smaller than the size of the input data words
 # (for efficiency it must be an exact divisor).
 
-function rem_small_table{D<:U, A<:U, P<:U}(::Type{D}, degree, poly::P, data, table::Vector{A}; init=0)
-    poly::A, width, pad, carry::A, rem_mask::A, load, word_size = check_poly(D, A, degree, poly)
-    index_size = check_small_table(word_size, table)
+function rem_small_table{D<:U, A<:U, P<:U
+                         }(::Type{D}, degree, poly::P, data, table::Vector{A};
+                           init=0, refin=false, refout=false)
+
+    poly::A, init::A, width, pad, carry::A, rem_mask::A, load, word_size = 
+        check_poly(D, A, degree, poly)
+    index_size = measure_table(table)
+    @assert word_size >= index_size "incorrect index size (not small)"
+    @assert word_size % index_size == 0 "incorrect index size (not divisor of word size)"
     index_shift = width - index_size
     index_mask::A = convert(A, (one(Uint128) << index_size) - 1) << index_shift
     n_shifts = div(word_size, index_size)
 
-    remainder::A = pre_rem(rem_mask, init, pad)
+    if refin
+        remainder = loop_small_table_ref()
+    else
+        remainder = loop_small_table(D, init, data, table, load, n_shifts,
+                                     index_mask, index_size, index_shift)
+    end
+    fix_remainder(P, remainder, rem_mask, pad, refin, refout)
+end
+
+rem_small_table{D<:U, A<:U, P<:U
+                }(degree, poly::P, data::Vector{D}, table::Vector{A}; 
+                  init=0, refin=false, refout=false) = 
+                  rem_small_table(D, degree, poly, data, table, 
+                                  init=init, refin=refin, refout=refout)
+
+function loop_small_table_ref()
+end
+
+function loop_small_table{D<:U, A<:U
+                          }(::Type{D}, remainder::A, data, table::Vector{A}, 
+                            load, n_shifts, index_mask, index_size, index_shift)
     for word::D in data
         # TODO - can this be xored just once at the start?
         tmp::A = convert(A, word) << load
         for _ in 1:n_shifts
-            remainder = remainder $ (tmp & index_mask)
+            remainder::A = remainder $ (tmp & index_mask)
             remainder = (remainder << index_size) $ table[1 + (remainder >>> index_shift)]
             tmp <<= index_size
         end
     end
-    fix_remainder(P, remainder, rem_mask, pad)
+    remainder
 end
-
-rem_small_table{D<:U, A<:U, P<:U}(degree, poly::P, data::Vector{D}, table::Vector{A}; init=0) = rem_small_table(D, degree, poly, data, table, init=init)
 
 
 # use a table whose index is larger than the size of the input data
