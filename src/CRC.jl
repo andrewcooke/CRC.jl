@@ -249,12 +249,10 @@ end
 function rem_word_table{D<:U, A<:U, P<:U
                         }(::Type{D}, degree, poly::P, data, table::Vector{A}; 
                           init=0, refin=false, refout=false)
-
     poly::A, init::A, width, pad, carry::A, rem_mask::A, load, word_size = 
         check_poly(D, A, degree, poly, init, refin)
     index_size = measure_table(table)
     @assert word_size == index_size "incorrect index size (not word)"
-
     if refin
         remainder = loop_word_ref(D, init, data, table, word_size)
     else
