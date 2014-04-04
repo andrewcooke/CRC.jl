@@ -287,7 +287,7 @@ function rem_small_table{D<:U, A<:U, P<:U
                            init=0, refin=false, refout=false)
 
     poly::A, init::A, width, pad, carry::A, rem_mask::A, load, word_size = 
-        check_poly(D, A, degree, poly)
+        check_poly(D, A, degree, poly, init, refin)
     index_size = measure_table(table)
     @assert word_size >= index_size "incorrect index size (not small)"
     @assert word_size % index_size == 0 "incorrect index size (not divisor of word size)"
@@ -301,7 +301,7 @@ function rem_small_table{D<:U, A<:U, P<:U
         remainder = loop_small_table(D, init, data, table, load, n_shifts,
                                      index_mask, index_size, index_shift)
     end
-    fix_remainder(P, remainder, rem_mask, pad, refin, refout)
+    fix_remainder(P, degree, remainder, rem_mask, pad, refin, refout)
 end
 
 rem_small_table{D<:U, A<:U, P<:U
