@@ -25,14 +25,14 @@ export to_uint, rem_no_table, make_table, rem_word_table,
        CRC_11, CRC_12_3GPP, CRC_12_CDMA2000, CRC_12_DECT, CRC_13_BBC,
        CRC_14_DARC, CRC_15, CRC_15_MPT1327, CRC_16_ARC,
        CRC_16_AUG_CCITT, CRC_16_BUYPASS, CRC_16_CCITT_FALSE,
-       CRC_16_CDMA2000, CRC_16_DDS_110, CRC_16_DECT_R,
-       CRC_16_EN_13757, CRC_16_GENIBUS, CRC_16_MAXIM, CRC_16_RIELLO,
-       CRC_16_TELEDISK, CRC_16_USB, CRC_16_CRC_A, CRC_16_KERMIT,
-       CRC_16_MODBUS, CRC_16_X_25, CRC_16_XMODEM, CRC_24,
-       CRC_24_FLEXRAY_A, CRC_24_FLEXRAY_B, CRC_31_PHILIPS, CRC_32,
-       CRC_32_BZIP2, CRC_32_C, CRC_32_D, CRC_32_MPEG_2, CRC_32_POSIX,
-       CRC_32_Q, CRC_32_JAMCRC, CRC_32_XFER, CRC_40_GSM, CRC_64,
-       CRC_64_WE, CRC_64_XZ, CRC_82_DARC
+       CRC_16_CDMA2000, CRC_16_DDS_110, CRC_16_DECT_R, CRC_16_DECT_X,
+       CRC_16_DNP, CRC_16_EN_13757, CRC_16_GENIBUS, CRC_16_MAXIM,
+       CRC_16_RIELLO, CRC_16_TELEDISK, CRC_16_USB, CRC_16_CRC_A,
+       CRC_16_KERMIT, CRC_16_MODBUS, CRC_16_X_25, CRC_16_XMODEM,
+       CRC_24, CRC_24_FLEXRAY_A, CRC_24_FLEXRAY_B, CRC_31_PHILIPS,
+       CRC_32, CRC_32_BZIP2, CRC_32_C, CRC_32_D, CRC_32_MPEG_2,
+       CRC_32_POSIX, CRC_32_Q, CRC_32_JAMCRC, CRC_32_XFER, CRC_40_GSM,
+       CRC_64, CRC_64_WE, CRC_64_XZ, CRC_82_DARC
 
 import Base: start, done, next
 
@@ -372,15 +372,21 @@ function loop_large_table_ref{D<:U, A<:U
                               }(::Type{D}, remainder::A, data, table::Vector{A},
                                 word_size, n_shifts, index_size, index_mask)
     iter = start(data)
+    correct = 0  # correction for incomplete data
     while !done(data, iter)
         for i in 1:n_shifts
             if !done(data, iter)
                 word::D, iter = next(data, iter)
                 shift = (i-1) * word_size
                 remainder = remainder $ (convert(A, word) << shift)
+            else
+                # incomplete data; user smaller index and consume less
+                index_mask >>>= word_size
+                index_size -= word_size
+                correct += word_size
             end
         end
-        remainder = (remainder >>> index_size) $ table[1 + (remainder & index_mask)]
+        remainder = (remainder >>> index_size) $ table[1 + ((remainder & index_mask) << correct)]
     end
     remainder
 end
@@ -389,7 +395,6 @@ function loop_large_table{D<:U, A<:U
                           }(::Type{D}, remainder::A, data, table::Vector{A},
                             load, word_size, n_shifts, index_size, index_shift)
     iter = start(data)
-    left_shift, right_shift = index_size, index_shift
     while !done(data, iter)
         for i in 1:n_shifts
             if !done(data, iter)
@@ -397,11 +402,12 @@ function loop_large_table{D<:U, A<:U
                 shift = load - (i-1) * word_size
                 remainder = remainder $ (convert(A, word) << shift)
             else
-                left_shift -= word_size
-                right_shift += word_size
+                # incomplete data; use smaller index and consume less
+                index_size -= word_size
+                index_shift += word_size
             end
         end
-        remainder = (remainder << left_shift) $ table[1 + (remainder >>> right_shift)]
+        remainder = (remainder << index_size) $ table[1 + (remainder >>> index_shift)]
     end
     remainder
 end
@@ -563,21 +569,18 @@ CRC_82_DARC =        Std(82, 0x0308c0111011401440411, 0x000000000000000000000, t
 
 function crc{D<:U, A<:U, P<:U}(::Type{D}, std::Std{A, P}, data)
     if !isdefined(std, :table)
-        std.table = make_table(A, std.width, std.poly, std.index_size)
-    end
-    if std.refin
-        data = ReflectWords(data)
+        std.table = make_table(A, std.width, std.poly, std.index_size, refin=std.refin)
     end
     word_size = 8 * sizeof(D)
     if word_size == std.index_size
-        remainder = rem_word_table(D, std.width, std.poly, data, std.table; init=std.init)
+        remainder = rem_word_table(D, std.width, std.poly, data, std.table; 
+                                   init=std.init, refin=std.refin, refout=std.refout)
     elseif word_size > std.index_size
-        remainder = rem_small_table(D, std.width, std.poly, data, std.table; init=std.init)
+        remainder = rem_small_table(D, std.width, std.poly, data, std.table; 
+                                    init=std.init, refin=std.refin, refout=std.refout)
     else
-        remainder = rem_large_table(D, std.width, std.poly, data, std.table; init=std.init)
-    end
-    if std.refout
-        remainder = reflect(std.width, remainder)
+        remainder = rem_large_table(D, std.width, std.poly, data, std.table; 
+                                    init=std.init, refin=std.refin, refout=std.refout)
     end
     remainder $ std.xorout
 end

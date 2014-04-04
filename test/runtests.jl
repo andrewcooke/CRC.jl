@@ -318,16 +318,16 @@ function test_tests()
                 :CRC_13_BBC, :CRC_14_DARC, :CRC_15, :CRC_15_MPT1327,
                 :CRC_16_ARC, :CRC_16_AUG_CCITT, :CRC_16_BUYPASS,
                 :CRC_16_CCITT_FALSE, :CRC_16_CDMA2000,
-                :CRC_16_DDS_110, :CRC_16_DECT_R, :CRC_16_EN_13757,
-                :CRC_16_GENIBUS, :CRC_16_MAXIM, :CRC_16_RIELLO,
-                :CRC_16_TELEDISK, :CRC_16_USB, :CRC_16_CRC_A,
-                :CRC_16_KERMIT, :CRC_16_MODBUS, :CRC_16_X_25,
-                :CRC_16_XMODEM, :CRC_24, :CRC_24_FLEXRAY_A,
-                :CRC_24_FLEXRAY_B, :CRC_31_PHILIPS, :CRC_32,
-                :CRC_32_BZIP2, :CRC_32_C, :CRC_32_D, :CRC_32_MPEG_2,
-                :CRC_32_POSIX, :CRC_32_Q, :CRC_32_JAMCRC,
-                :CRC_32_XFER, :CRC_40_GSM, :CRC_64, :CRC_64_WE,
-                :CRC_64_XZ, :CRC_82_DARC)
+                :CRC_16_DDS_110, :CRC_16_DECT_R, :CRC_16_DECT_X,
+                :CRC_16_DNP, :CRC_16_EN_13757, :CRC_16_GENIBUS,
+                :CRC_16_MAXIM, :CRC_16_RIELLO, :CRC_16_TELEDISK,
+                :CRC_16_USB, :CRC_16_CRC_A, :CRC_16_KERMIT,
+                :CRC_16_MODBUS, :CRC_16_X_25, :CRC_16_XMODEM, :CRC_24,
+                :CRC_24_FLEXRAY_A, :CRC_24_FLEXRAY_B, :CRC_31_PHILIPS,
+                :CRC_32, :CRC_32_BZIP2, :CRC_32_C, :CRC_32_D,
+                :CRC_32_MPEG_2, :CRC_32_POSIX, :CRC_32_Q,
+                :CRC_32_JAMCRC, :CRC_32_XFER, :CRC_40_GSM, :CRC_64,
+                :CRC_64_WE, :CRC_64_XZ, :CRC_82_DARC)
 
         s = eval(std)
         remainder = crc(s, TEST)
@@ -387,11 +387,11 @@ function time_libz()
     @assert crc(CRC_32X_64_16, datax) == check
 
     @time crc32(data)               # 0.09
-#    @time crc(CRC_32, data)         # 9
-    @time crc(CRC_32X_32_8, datax)  # 0.29
-    @time crc(CRC_32X_32_16, datax) # 0.39
-    @time crc(CRC_32X_64_8, datax)  # 0.35
-    @time crc(CRC_32X_64_16, datax) # 0.53
+    @time crc(CRC_32, data)         # 0.32
+    @time crc(CRC_32X_32_8, datax)  # 0.32
+    @time crc(CRC_32X_32_16, datax) # 0.32
+    @time crc(CRC_32X_64_8, datax)  # 0.32
+    @time crc(CRC_32X_64_16, datax) # 0.51
 end
 
 
@@ -407,6 +407,8 @@ function tests()
     test_tests()
 end
 
-tests()
+println(code_native(CRC.loop_word_ref, (Int, Uint32, Array{Uint8, 1}, Uint32, Bool, Bool)))
+
+#tests()
 #time_table_size()
 #time_libz()
