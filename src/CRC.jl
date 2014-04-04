@@ -492,13 +492,6 @@ type Spec{P<:U}
 end
 
 
-#function defaults(width)
-#    index_size = min(MAX_INDEX_SIZE, 8 * sizeof(to_uint(width)))
-#    index_size = 8
-#    A = to_uint(width)
-#    A, index_size
-#end
-
 Spec{P<:U}(poly::P, init::P, refin::Bool, refout::Bool, xorout::P, test::P) = 
     Spec(8*sizeof(P), poly, init, refin, refout, xorout, test)
 
