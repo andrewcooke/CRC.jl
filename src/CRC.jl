@@ -163,10 +163,8 @@ end
 function rem_no_table{D<:U, A<:U, P<:U
                       }(::Type{D}, ::Type{A}, degree, poly::P, data; 
                         init=0, refin=false, refout=false)
-
     poly::A, init::A, width, pad, carry::A, rem_mask::A, load, word_size = 
         check_poly(D, A, degree, poly, init, refin)
-
     if refin
         remainder = loop_no_table_ref(D, poly, init, data, word_size)
     else
@@ -225,6 +223,7 @@ function make_table{A<:U, P<:U
     index_shift = width - index_size
     table_size = 2 ^ index_size
     table = Array(A, table_size)
+
     # TODO - reverse logic as refin case simpler and faster
     for index in zero(Uint64):convert(Uint64, table_size-1)
         remainder::A = convert(A, index) << index_shift
