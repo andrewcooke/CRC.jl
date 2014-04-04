@@ -14,7 +14,7 @@
 module CRC
 
 export to_uint, crc_no_table, make_table, crc_word_table,
-       crc_small_table, crc_large_table, Std, crc, ReflectWords,
+       crc_small_table, crc_large_table, Spec, crc, ReflectWords,
        reflect, TEST, CRC_3_ROHC, CRC_4_ITU, CRC_5_EPC, CRC_5_ITU,
        CRC_5_USB, CRC_6_CDMA2000_A, CRC_6_CDMA2000_B, CRC_6_DARC,
        CRC_6_ITU, CRC_7, CRC_7_ROHC, CRC_8, CRC_8_CDMA2000,
