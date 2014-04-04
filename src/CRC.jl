@@ -143,15 +143,6 @@ function measure_table{A<:U}(table::Vector{A})
     index_size
 end
 
-# TODO - move back to routines below
-
-function check_large_table{A<:U}(word_size, table::Vector{A})
-    index_size = measure_table(table)
-    @assert word_size <= index_size "incorrect index size (not large)"
-    @assert index_size % word_size == 0 "incorrect index size (not multiple of word size)"
-    index_size
-end
-
 
 # basic calculation without a table
 
@@ -351,12 +342,37 @@ end
 function rem_large_table{D<:U, A<:U, P<:U
                          }(::Type{D}, degree, poly::P, data, table::Vector{A};
                            init=0, refin=false, refout=false)
-    poly::A, width, pad, carry::A, rem_mask::A, load, word_size = check_poly(D, A, degree, poly)
-    index_size = check_large_table(word_size, table)
+
+    poly::A, init::A, width, pad, carry::A, rem_mask::A, load, word_size = 
+        check_poly(D, A, degree, poly, init, refin)
+    index_size = measure_table(table)
+    @assert word_size <= index_size "incorrect index size (not large)"
+    @assert index_size % word_size == 0 "incorrect index size (not multiple of word size)"
     index_shift = width - index_size
+    index_mask::A = convert(A, (one(Uint128) << index_size) - 1) << index_shift
     n_shifts = div(index_size, word_size)
 
-    remainder::A = pre_rem(rem_mask, init, pad)
+    if refin
+        remainder = loop_large_table_ref()
+    else
+        remainder = loop_large_table(D, init, data, table, load, word_size,
+                                     n_shifts, index_size, index_shift)
+    end
+    fix_remainder(P, degree, remainder, rem_mask, pad, refin, refout)
+end
+
+rem_large_table{D<:U, A<:U, P<:U
+                }(degree, poly::P, data::Vector{D}, table::Vector{A}; 
+                  init=0, refin=false, refout=false) = 
+                  rem_large_table(D, degree, poly, data, table, 
+                                  init=init, refin=refin, refout=refout)
+
+function loop_large_table_ref()
+end
+
+function loop_large_table{D<:U, A<:U
+                          }(::Type{D}, remainder::A, data, table::Vector{A},
+                            load, word_size, n_shifts, index_size, index_shift)
     iter = start(data)
     left_shift, right_shift = index_size, index_shift
     while !done(data, iter)
@@ -372,10 +388,8 @@ function rem_large_table{D<:U, A<:U, P<:U
         end
         remainder = (remainder << left_shift) $ table[1 + (remainder >>> right_shift)]
     end
-    fix_remainder(P, remainder, rem_mask, pad)
+    remainder
 end
-
-rem_large_table{D<:U, A<:U, P<:U}(degree, poly::P, data::Vector{D}, table::Vector{A}; init=0) = rem_large_table(D, degree, poly, data, table, init=init)
 
 
 # http://stackoverflow.com/questions/2602823/in-c-c-whats-the-simplest-way-to-reverse-the-order-of-bits-in-a-byte
