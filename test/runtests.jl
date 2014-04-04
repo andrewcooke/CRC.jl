@@ -9,8 +9,8 @@ function test_largest()
     @assert CRC.largest(Uint16, Uint8) == Uint16
 end
 
-function test_rem_no_table()
-    print("rem_no_table")
+function test_crc_no_table()
+    print("crc_no_table")
 
     for _ in 1:10
 
@@ -20,7 +20,7 @@ function test_rem_no_table()
         b1 = rand(Uint8)
         a2 = convert(Uint64, convert(Uint64, a1[1]) << 16 + convert(Uint64, a1[2]) << 8)
         b2 = convert(Uint64, (1 << 8) | b1)
-        c1 = rem_no_table(8, b1, a1)
+        c1 = crc_no_table(8, b1, a1)
         c2 = GF2Poly(a2) % GF2Poly(b2)
         @test c1 < b2
         @test c2.i < b2
@@ -29,7 +29,7 @@ function test_rem_no_table()
 
         # now swap the bytes and use refin
         a1r = collect(Uint8, map(reflect, a1))
-        c1r = rem_no_table(8, b1, a1r, refin=true)        
+        c1r = crc_no_table(8, b1, a1r, refin=true)        
         @test c1r < b2
         @test c2.i == c1r
         print(".")
@@ -38,7 +38,7 @@ function test_rem_no_table()
         b1 = convert(Uint8, (1 << 3) | (b1 & ((1 << 3) - 1)))
         a2 = convert(Uint64, convert(Uint64, a1[1]) << 11 + convert(Uint64, a1[2]) << 3)
         b2 = convert(Uint64, b1)
-        c1 = rem_no_table(3, b1, a1)
+        c1 = crc_no_table(3, b1, a1)
         c2 = GF2Poly(a2) % GF2Poly(b2)
         @test c1 < b2
         @test c2.i < b2
@@ -51,7 +51,7 @@ function test_rem_no_table()
         b1 = rand(Uint16)
         a2 = convert(Uint64, convert(Uint64, a1[1]) << 32 + convert(Uint64, a1[2]) << 24 + convert(Uint64, a1[3]) << 16)
         b2 = convert(Uint64, (1 << 16) | b1)
-        c1 = rem_no_table(16, b1, a1)
+        c1 = crc_no_table(16, b1, a1)
         c2 = GF2Poly(a2) % GF2Poly(b2)
         @test c1 < b2
         @test c2.i < b2
@@ -63,7 +63,7 @@ function test_rem_no_table()
         b1 = convert(Uint16, (1 << 9) | (b1 & ((1 << 9) - 1)))
         a2 = convert(Uint64, convert(Uint64, a1[1]) << 25 + convert(Uint64, a1[2]) << 17 + convert(Uint64, a1[3]) << 9)
         b2 = convert(Uint64, b1)
-        c1 = rem_no_table(9, b1, a1)
+        c1 = crc_no_table(9, b1, a1)
         c2 = GF2Poly(a2) % GF2Poly(b2)
         @test c1 < b2
         @test c2.i < b2
@@ -75,8 +75,8 @@ function test_rem_no_table()
     println("ok")
 end
 
-function test_rem_word_table()
-    print("rem_word_table")
+function test_crc_word_table()
+    print("crc_word_table")
 
     for _ in 1:10
 
@@ -86,7 +86,7 @@ function test_rem_word_table()
         b1 = rand(Uint8)
         a2 = convert(Uint64, convert(Uint64, a1[1]) << 16 + convert(Uint64, a1[2]) << 8)
         b2 = convert(Uint64, (1 << 8) | b1)
-        c1 = rem_word_table(8, b1, a1, make_table(Uint8, 8, b1, 8*sizeof(a1[1])))
+        c1 = crc_word_table(8, b1, a1, make_table(Uint8, 8, b1, 8*sizeof(a1[1])))
         c2 = GF2Poly(a2) % GF2Poly(b2)
         @test c1 < b2
         @test c2.i < b2
@@ -95,7 +95,7 @@ function test_rem_word_table()
 
         # now swap the bytes and use refin
         a1r = collect(Uint8, map(reflect, a1))
-        c1r = rem_word_table(8, b1, a1r, make_table(Uint8, 8, b1, 8*sizeof(a1r[1]), refin=true), refin=true)
+        c1r = crc_word_table(8, b1, a1r, make_table(Uint8, 8, b1, 8*sizeof(a1r[1]), refin=true), refin=true)
         @test c1r < b2
         @test c2.i == c1r
         print(".")
@@ -104,7 +104,7 @@ function test_rem_word_table()
         b1 = convert(Uint8, (1 << 3) | (b1 & ((1 << 3) - 1)))
         a2 = convert(Uint64, convert(Uint64, a1[1]) << 11 + convert(Uint64, a1[2]) << 3)
         b2 = convert(Uint64, b1)
-        c1 = rem_word_table(3, b1, a1, make_table(Uint8, 3, b1, 8*sizeof(a1[1])))
+        c1 = crc_word_table(3, b1, a1, make_table(Uint8, 3, b1, 8*sizeof(a1[1])))
         c2 = GF2Poly(a2) % GF2Poly(b2)
         @test c1 < b2
         @test c2.i < b2
@@ -117,7 +117,7 @@ function test_rem_word_table()
         b1 = rand(Uint16)
         a2 = convert(Uint64, convert(Uint64, a1[1]) << 32 + convert(Uint64, a1[2]) << 24 + convert(Uint64, a1[3]) << 16)
         b2 = convert(Uint64, (1 << 16) | b1)
-        c1 = rem_word_table(16, b1, a1, make_table(Uint16, 16, b1, 8*sizeof(a1[1])))
+        c1 = crc_word_table(16, b1, a1, make_table(Uint16, 16, b1, 8*sizeof(a1[1])))
         c2 = GF2Poly(a2) % GF2Poly(b2)
         @test c1 < b2
         @test c2.i < b2
@@ -129,7 +129,7 @@ function test_rem_word_table()
         b1 = convert(Uint16, (1 << 9) | (b1 & ((1 << 9) - 1)))
         a2 = convert(Uint64, convert(Uint64, a1[1]) << 25 + convert(Uint64, a1[2]) << 17 + convert(Uint64, a1[3]) << 9)
         b2 = convert(Uint64, b1)
-        c1 = rem_word_table(9, b1, a1, make_table(Uint16, 9, b1, 8*sizeof(a1[1])))
+        c1 = crc_word_table(9, b1, a1, make_table(Uint16, 9, b1, 8*sizeof(a1[1])))
         c2 = GF2Poly(a2) % GF2Poly(b2)
         @test c1 < b2
         @test c2.i < b2
@@ -141,8 +141,8 @@ function test_rem_word_table()
     println("ok")
 end
 
-function test_rem_small_table()
-    print("rem_small_table")
+function test_crc_small_table()
+    print("crc_small_table")
 
     for _ in 1:10
 
@@ -154,26 +154,26 @@ function test_rem_small_table()
         b2 = convert(Uint64, (1 << 8) | b1)
         c2 = GF2Poly(a2) % GF2Poly(b2)
         @test c2.i < b2
-        c1 = rem_small_table(8, b1, a1, make_table(Uint8, 8, b1, 8*sizeof(a1[1])))
+        c1 = crc_small_table(8, b1, a1, make_table(Uint8, 8, b1, 8*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
-        c1 = rem_small_table(8, b1, a1, make_table(Uint8, 8, b1, 4*sizeof(a1[1])))
+        c1 = crc_small_table(8, b1, a1, make_table(Uint8, 8, b1, 4*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
-        c1 = rem_small_table(8, b1, a1, make_table(Uint16, 8, b1, 4*sizeof(a1[1])))
+        c1 = crc_small_table(8, b1, a1, make_table(Uint16, 8, b1, 4*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
         print(".")
 
         # now swap the bytes and use refin
         a1r = collect(Uint8, map(reflect, a1))
-        c1r = rem_small_table(8, b1, a1r, make_table(Uint8, 8, b1, 8*sizeof(a1r[1]), refin=true), refin=true)
+        c1r = crc_small_table(8, b1, a1r, make_table(Uint8, 8, b1, 8*sizeof(a1r[1]), refin=true), refin=true)
         @test c1r < b2
         @test c2.i == c1r
-        c1r = rem_small_table(8, b1, a1r, make_table(Uint8, 8, b1, 4*sizeof(a1r[1]), refin=true), refin=true)
+        c1r = crc_small_table(8, b1, a1r, make_table(Uint8, 8, b1, 4*sizeof(a1r[1]), refin=true), refin=true)
         @test c1r < b2
         @test c2.i == c1r
-        c1r = rem_small_table(8, b1, a1r, make_table(Uint16, 8, b1, 4*sizeof(a1r[1]), refin=true), refin=true)
+        c1r = crc_small_table(8, b1, a1r, make_table(Uint16, 8, b1, 4*sizeof(a1r[1]), refin=true), refin=true)
         @test c1r < b2
         @test c2.i == c1r
         print(".")
@@ -184,10 +184,10 @@ function test_rem_small_table()
         b2 = convert(Uint64, b1)
         c2 = GF2Poly(a2) % GF2Poly(b2)
         @test c2.i < b2
-        c1 = rem_small_table(3, b1, a1, make_table(Uint8, 3, b1, 8*sizeof(a1[1])))
+        c1 = crc_small_table(3, b1, a1, make_table(Uint8, 3, b1, 8*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
-        c1 = rem_small_table(3, b1, a1, make_table(Uint16, 3, b1, 4*sizeof(a1[1])))
+        c1 = crc_small_table(3, b1, a1, make_table(Uint16, 3, b1, 4*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
         print(".")
@@ -200,10 +200,10 @@ function test_rem_small_table()
         b2 = convert(Uint64, (1 << 16) | b1)
         c2 = GF2Poly(a2) % GF2Poly(b2)
         @test c2.i < b2
-        c1 = rem_small_table(16, b1, a1, make_table(Uint16, 16, b1, 8*sizeof(a1[1])))
+        c1 = crc_small_table(16, b1, a1, make_table(Uint16, 16, b1, 8*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
-        c1 = rem_small_table(16, b1, a1, make_table(Uint64, 16, b1, 2*sizeof(a1[1])))
+        c1 = crc_small_table(16, b1, a1, make_table(Uint64, 16, b1, 2*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
         print(".")
@@ -215,10 +215,10 @@ function test_rem_small_table()
         b2 = convert(Uint64, b1)
         c2 = GF2Poly(a2) % GF2Poly(b2)
         @test c2.i < b2
-        c1 = rem_small_table(9, b1, a1, make_table(Uint64, 9, b1, 8*sizeof(a1[1])))
+        c1 = crc_small_table(9, b1, a1, make_table(Uint64, 9, b1, 8*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
-        c1 = rem_small_table(9, b1, a1, make_table(Uint16, 9, b1, 1*sizeof(a1[1])))
+        c1 = crc_small_table(9, b1, a1, make_table(Uint16, 9, b1, 1*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
         print(".")
@@ -229,8 +229,8 @@ function test_rem_small_table()
 end
 
 
-function test_rem_large_table()
-    print("rem_large_table")
+function test_crc_large_table()
+    print("crc_large_table")
 
     for _ in 1:10
 
@@ -242,20 +242,20 @@ function test_rem_large_table()
         b2 = convert(Uint64, (1 << 16) | b1)
         c2 = GF2Poly(a2) % GF2Poly(b2)
         @test c2.i < b2
-        c1 = rem_large_table(16, b1, a1, make_table(Uint16, 16, b1, 8*sizeof(a1[1])))
+        c1 = crc_large_table(16, b1, a1, make_table(Uint16, 16, b1, 8*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
-        c1 = rem_large_table(16, b1, a1, make_table(Uint64, 16, b1, 16*sizeof(a1[1])))
+        c1 = crc_large_table(16, b1, a1, make_table(Uint64, 16, b1, 16*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
         print(".")
 
         # now swap the bytes and use refin
         a1r = collect(Uint8, map(reflect, a1))
-        c1r = rem_large_table(16, b1, a1r, make_table(Uint16, 16, b1, 8*sizeof(a1r[1]), refin=true), refin=true)
+        c1r = crc_large_table(16, b1, a1r, make_table(Uint16, 16, b1, 8*sizeof(a1r[1]), refin=true), refin=true)
         @test c1r < b2
         @test c2.i == c1r
-        c1r = rem_large_table(16, b1, a1r, make_table(Uint64, 16, b1, 16*sizeof(a1r[1]), refin=true), refin=true)
+        c1r = crc_large_table(16, b1, a1r, make_table(Uint64, 16, b1, 16*sizeof(a1r[1]), refin=true), refin=true)
         @test c1r < b2
         @test c2.i == c1r
         print(".")
@@ -267,10 +267,10 @@ function test_rem_large_table()
         b2 = convert(Uint64, b1)
         c2 = GF2Poly(a2) % GF2Poly(b2)
         @test c2.i < b2
-        c1 = rem_large_table(3, b1, a1, make_table(Uint8, 3, b1, 8*sizeof(a1[1])))
+        c1 = crc_large_table(3, b1, a1, make_table(Uint8, 3, b1, 8*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
-        c1 = rem_large_table(3, b1, a1, make_table(Uint16, 3, b1, 16*sizeof(a1[1])))
+        c1 = crc_large_table(3, b1, a1, make_table(Uint16, 3, b1, 16*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
         print(".")
@@ -283,10 +283,10 @@ function test_rem_large_table()
         b2 = convert(Uint64, (1 << 16) | b1)
         c2 = GF2Poly(a2) % GF2Poly(b2)
         @test c2.i < b2
-        c1 = rem_large_table(16, b1, a1, make_table(Uint32, 16, b1, 8*sizeof(a1[1])))
+        c1 = crc_large_table(16, b1, a1, make_table(Uint32, 16, b1, 8*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
-        c1 = rem_large_table(16, b1, a1, make_table(Uint64, 16, b1, 16*sizeof(a1[1])))
+        c1 = crc_large_table(16, b1, a1, make_table(Uint64, 16, b1, 16*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
         print(".")
@@ -316,82 +316,76 @@ function test_tests()
                 :CRC_8_ROHC, :CRC_8_WCDMA, :CRC_10, :CRC_10_CDMA2000,
                 :CRC_11, :CRC_12_3GPP, :CRC_12_CDMA2000, :CRC_12_DECT,
                 :CRC_13_BBC, :CRC_14_DARC, :CRC_15, :CRC_15_MPT1327,
+
                 :CRC_16_ARC, :CRC_16_AUG_CCITT, :CRC_16_BUYPASS,
                 :CRC_16_CCITT_FALSE, :CRC_16_CDMA2000,
                 :CRC_16_DDS_110, :CRC_16_DECT_R, :CRC_16_DECT_X,
                 :CRC_16_DNP, :CRC_16_EN_13757, :CRC_16_GENIBUS,
                 :CRC_16_MAXIM, :CRC_16_RIELLO, :CRC_16_TELEDISK,
                 :CRC_16_USB, :CRC_16_CRC_A, :CRC_16_KERMIT,
-                :CRC_16_MODBUS, :CRC_16_X_25, :CRC_16_XMODEM, :CRC_24,
-                :CRC_24_FLEXRAY_A, :CRC_24_FLEXRAY_B, :CRC_31_PHILIPS,
-                :CRC_32, :CRC_32_BZIP2, :CRC_32_C, :CRC_32_D,
-                :CRC_32_MPEG_2, :CRC_32_POSIX, :CRC_32_Q,
+                :CRC_16_MODBUS, :CRC_16_X_25, :CRC_16_XMODEM, 
+
+                :CRC_24, :CRC_24_FLEXRAY_A, :CRC_24_FLEXRAY_B,
+                :CRC_31_PHILIPS, :CRC_32, :CRC_32_BZIP2, :CRC_32_C,
+                :CRC_32_D, :CRC_32_MPEG_2, :CRC_32_POSIX, :CRC_32_Q,
                 :CRC_32_JAMCRC, :CRC_32_XFER, :CRC_40_GSM, :CRC_64,
                 :CRC_64_WE, :CRC_64_XZ, :CRC_82_DARC)
 
         s = eval(std)
-        remainder = crc(s, TEST)
-        if remainder != s.test 
-            println("\n$std $(hex(remainder)) $(hex(s.test))")
-        end
-        @test remainder == s.test 
-        print(".")
 
-        data = s.refin ? ReflectWords(TEST) : TEST
-        remainder = rem_no_table(Uint8, to_uint(s.width), s.width, s.poly, data, init=s.init)
-        remainder = s.refout ? reflect(s.width, remainder) : remainder
-        remainder $= s.xorout
-        if remainder != s.test 
-            println("\n$std $(hex(remainder)) $(hex(s.test)) (no table)")
+        for A in (Uint8, Uint16, Uint32, Uint64, Uint128)
+
+            if s.width <= 8*sizeof(A)
+                remainder = crc(s, TEST, A, table=false)
+                if remainder != s.test 
+                    println("\n$std $(hex(remainder)) $(hex(s.test))")
+                end
+                @test remainder == s.test 
+                print(".")
+                
+                for index_size in (8, 16)
+                    if index_size <= 8*sizeof(A)
+                        remainder = crc(s, TEST, A, index_size=index_size)
+                        if remainder != s.test 
+                            println("\n$std $(hex(remainder)) $(hex(s.test))")
+                        end
+                        @test remainder == s.test 
+                        print(".")
+                    end
+                end
+            end
         end
-        @test remainder == s.test 
-        print(".")
 
     end
     println("ok")
 end
 
-function time_table_size()
-    CCITT_8_4 = Std{Uint64, Uint16}(16, 0x1021, 0x0000, false, false, 0x0000, 0x0000, 4)
-    CCITT_8_8 = Std{Uint64, Uint16}(16, 0x1021, 0x0000, false, false, 0x0000, 0x0000, 8)
-    CCITT_64_8 = Std{Uint64, Uint16}(16, 0x1021, 0x0000, false, false, 0x0000, 0x0000, 8)
-    CCITT_16_16 = Std{Uint64, Uint16}(16, 0x1021, 0x0000, false, false, 0x0000, 0x0000, 16)
-    CCITT_64_16 = Std{Uint64, Uint16}(16, 0x1021, 0x0000, false, false, 0x0000, 0x0000, 16)
-    data = rand(Uint8, 100_000_000)
-    @test crc(CCITT_8_8, data) == crc(CCITT_8_4, data)
-    @test crc(CCITT_8_8, data) == crc(CCITT_16_16, data)
-    @test crc(CCITT_64_8, data) == crc(CCITT_64_16, data)
-
-    @time crc(CCITT_8_4, data)   # 1.1
-    @time crc(CCITT_8_8, data)   # 0.35
-    @time crc(CCITT_64_8, data)  # 0.35
-    @time crc(CCITT_16_16, data) # 0.52
-    @time crc(CCITT_64_16, data) # 0.52
+function test_types()
+    # want this to give an error in case people are confused about types
+    @test_throws crc(CRC_32, Uint32)(b"abc")
 end
+
 
 function time_libz()
 
     # this assumes data are pre-reflected
-    CRC_32X_32_8 = Std{Uint32, Uint32}(32, 0x04c11db7, 0xffffffff, false,  true,  0xffffffff, 0xcbf43926, 8)
-    CRC_32X_32_16 = Std{Uint32, Uint32}(32, 0x04c11db7, 0xffffffff, false,  true,  0xffffffff, 0xcbf43926, 16)
-    CRC_32X_64_8 = Std{Uint64, Uint32}(32, 0x04c11db7, 0xffffffff, false,  true,  0xffffffff, 0xcbf43926, 8)
-    CRC_32X_64_16 = Std{Uint64, Uint32}(32, 0x04c11db7, 0xffffffff, false,  true,  0xffffffff, 0xcbf43926, 16)
+    C_8_32 = crc(CRC_32, Uint8, Uint32, index_size=8)
+    C_16_32 = crc(CRC_32, Uint8, Uint32, index_size=16)
+    C_8_64 = crc(CRC_32, Uint8, Uint64, index_size=8)
+    C_16_64 = crc(CRC_32, Uint8, Uint64, index_size=16)
 
-    data = rand(Uint8, 100_000_000)
-    datax = collect(Uint8, map(reflect, data))
+    data = rand(Uint8, 300_000_000)
     check = crc32(data)
-    @assert crc(CRC_32, data) == check
-    @assert crc(CRC_32X_32_8, datax) == check
-    @assert crc(CRC_32X_32_16, datax) == check
-    @assert crc(CRC_32X_64_8, datax) == check
-    @assert crc(CRC_32X_64_16, datax) == check
+    @assert C_8_32(data) == check
+    @assert C_16_32(data) == check
+    @assert C_8_64(data) == check
+    @assert C_16_64(data) == check
 
     @time crc32(data)               # 0.09
-    @time crc(CRC_32, data)         # 0.32
-    @time crc(CRC_32X_32_8, datax)  # 0.32
-    @time crc(CRC_32X_32_16, datax) # 0.32
-    @time crc(CRC_32X_64_8, datax)  # 0.32
-    @time crc(CRC_32X_64_16, datax) # 0.51
+    @time C_8_32(data)
+    @time C_16_32(data)
+    @time C_8_64(data)
+    @time C_16_64(data)
 end
 
 
@@ -399,16 +393,17 @@ srand(0)  # repeatable results
 
 function tests()
     test_largest()
-    test_rem_no_table()
-    test_rem_word_table()
-    test_rem_small_table()
-    test_rem_large_table()
+    test_crc_no_table()
+    test_crc_word_table()
+    test_crc_small_table()
+    test_crc_large_table()
     test_reflect()
     test_tests()
+    test_types()
 end
 
 #println(code_native(CRC.loop_word_ref, (Int, Uint32, Array{Uint8, 1}, Uint32, Bool, Bool)))
 
-tests()
+#tests()
 #time_table_size()
-#time_libz()
+time_libz()

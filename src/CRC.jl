@@ -15,8 +15,8 @@
 
 module CRC
 
-export to_uint, rem_no_table, make_table, rem_word_table,
-       rem_small_table, rem_large_table, Std, crc, ReflectWords,
+export to_uint, crc_no_table, make_table, crc_word_table,
+       crc_small_table, crc_large_table, Std, crc, ReflectWords,
        reflect, TEST, CRC_3_ROHC, CRC_4_ITU, CRC_5_EPC, CRC_5_ITU,
        CRC_5_USB, CRC_6_CDMA2000_A, CRC_6_CDMA2000_B, CRC_6_DARC,
        CRC_6_ITU, CRC_7, CRC_7_ROHC, CRC_8, CRC_8_CDMA2000,
@@ -92,10 +92,10 @@ end
 # common support for calculations
 
 function check_poly{A<:U, P<:U
-                    }(::Type{A}, degree, poly::P, init, refin)
+                    }(::Type{A}, degree, poly::P, init, refin, xorout)
 
-    @assert largest(A, degree) == A "accumulator too narrow for degree"
-    @assert largest(P, degree) == P "polynomial too narrow for degree"
+    @assert largest(A, degree) == A "accumulator $A too narrow for degree $degree"
+    @assert largest(P, degree) == P "polynomial $P too narrow for degree $degree"
 
     # how many spaces to right of polynomial in accumulator while
     # doing the division
@@ -114,26 +114,29 @@ function check_poly{A<:U, P<:U
     poly::A = convert(A, poly & rem_mask) << pad
     poly = refin ? reflect(degree, poly) : poly
 
-    (poly, init, width, pad, carry, rem_mask)
+    xorout = convert(P, xorout)
+    (poly, init, width, pad, carry, rem_mask, xorout)
 end
 
 function check_poly{D<:U, A<:U, P<:U
-                    }(::Type{D}, ::Type{A}, degree, poly::P, init, refin)
+                    }(::Type{D}, ::Type{A}, degree, poly::P, init, refin, xorout)
 
     @assert largest(D, A) == A "accumulator too narrow for data"
-    poly, init, width, pad, carry, rem_mask = check_poly(A, degree, poly, init, refin)
+    poly, init, width, pad, carry, rem_mask, xorout = 
+        check_poly(A, degree, poly, init, refin, xorout)
 
     # the shift when we load a data word into the remainder / accumulator
     word_size = 8 * sizeof(D)
     load = refin ? 0 : width - word_size
 
-    (poly, init, width, pad, carry, rem_mask, load, word_size)
+    (poly, init, width, pad, carry, rem_mask, load, word_size, xorout)
 end
 
 function fix_remainder{P<:U
-                       }(::Type{P}, degree, remainder, rem_mask, pad, refin, refout)
+                       }(::Type{P}, degree, remainder, rem_mask, pad, refin, refout, xorout::P)
     remainder = convert(P, (remainder >>> pad) & rem_mask)
-    (refin $ refout) ? reflect(degree, remainder) : remainder
+    remainder = (refin $ refout) ? reflect(degree, remainder) : remainder
+    remainder $ xorout
 end
 
 function measure_table{A<:U}(table::Vector{A})
@@ -143,27 +146,35 @@ function measure_table{A<:U}(table::Vector{A})
     index_size
 end
 
+function check_data{D<:U}(::Type{D}, data)
+    for d in data
+        @assert isa(d, D) "data not of correct size ($D / $(typeof(d))))"
+        return
+    end
+end
+
 
 # basic calculation without a table
 
-function rem_no_table{D<:U, A<:U, P<:U
+function crc_no_table{D<:U, A<:U, P<:U
                       }(::Type{D}, ::Type{A}, degree, poly::P, data; 
-                        init=0, refin=false, refout=false)
-    poly::A, init::A, width, pad, carry::A, rem_mask::A, load, word_size = 
-        check_poly(D, A, degree, poly, init, refin)
+                        init=0, refin=false, refout=false, xorout=0)
+    check_data(D, data)
+    poly::A, init::A, width, pad, carry::A, rem_mask::A, load, word_size, xorout::P = 
+        check_poly(D, A, degree, poly, init, refin, xorout)
     if refin
         remainder = loop_no_table_ref(D, poly, init, data, word_size)
     else
         remainder = loop_no_table(D, poly, init, data, carry, word_size, load)
     end
-    fix_remainder(P, degree, remainder, rem_mask, pad, refin, refout)
+    fix_remainder(P, degree, remainder, rem_mask, pad, refin, refout, xorout)
 end
 
-rem_no_table{D<:U, P<:U
+crc_no_table{D<:U, P<:U
              }(degree, poly::P, data::Vector{D}; 
-               init=0, refin=false, refout=false) = 
-               rem_no_table(D, fastest(D, degree), degree, poly, data, 
-                            init=init, refin=refin, refout=refout)
+               init=0, refin=false, refout=false, xorout=0) = 
+               crc_no_table(D, fastest(D, degree), degree, poly, data, 
+                            init=init, refin=refin, refout=refout, xorout=xorout)
 
 function loop_no_table_ref{D<:U, A<:U
                            }(::Type{D}, poly::A, remainder::A, data, word_size)
@@ -205,8 +216,8 @@ function make_table{A<:U, P<:U
     @assert index_size < 33 "table too large"  # even this is huge
     @assert largest(A, index_size) == A "accumulator too narrow for index"
 
-    poly::A, init::A, width, pad, carry::A, rem_mask::A = 
-        check_poly(A, degree, poly, 0, false)  # reflect below
+    poly::A, init::A, width, pad, carry::A, rem_mask::A, xorout = 
+        check_poly(A, degree, poly, 0, false, 0)  # reflect below
     index_shift = width - index_size
     table_size = 2 ^ index_size
     table = Array(A, table_size)
@@ -233,11 +244,12 @@ end
 
 # use a table whose index matches the size of the input data words.
 
-function rem_word_table{D<:U, A<:U, P<:U
+function crc_word_table{D<:U, A<:U, P<:U
                         }(::Type{D}, degree, poly::P, data, table::Vector{A}; 
-                          init=0, refin=false, refout=false)
-    poly::A, init::A, width, pad, carry::A, rem_mask::A, load, word_size = 
-        check_poly(D, A, degree, poly, init, refin)
+                          init=0, refin=false, refout=false, xorout=0)
+    check_data(D, data)
+    poly::A, init::A, width, pad, carry::A, rem_mask::A, load, word_size, xorout::P = 
+        check_poly(D, A, degree, poly, init, refin, xorout)
     index_size = measure_table(table)
     @assert word_size == index_size "incorrect index size (not word)"
     if refin
@@ -245,14 +257,26 @@ function rem_word_table{D<:U, A<:U, P<:U
     else
         remainder = loop_word(D, init, data, table, load, word_size)
     end
-    fix_remainder(P, degree, remainder, rem_mask, pad, refin, refout)
+    fix_remainder(P, degree, remainder, rem_mask, pad, refin, refout, xorout)
 end
 
-rem_word_table{D<:U, A<:U, P<:U
+crc_word_table{D<:U, A<:U, P<:U
                }(degree, poly::P, data::Vector{D}, table::Vector{A};
-                 init=0, refin=false, refout=false) = 
-                 rem_word_table(D, degree, poly, data, table, 
-                                init=init, refin=refin, refout=refout)
+                 init=0, refin=false, refout=false, xorout=0) = 
+                 crc_word_table(D, degree, poly, data, table, 
+                                init=init, refin=refin, refout=refout, xorout=xorout)
+
+# this apoears to be very slightly (~15%) faster
+# curiously, both fixes (array indexing and explicit 8 bits) seem to be needed
+function loop_word_ref{A<:U
+                       }(::Type{Uint8}, remainder::A, data::Vector{Uint8}, table::Vector{A}, word_size)
+    for i in 1:length(data)
+        @inbounds word::Uint8 = data[i]
+        word $= convert(Uint8, remainder)
+        remainder = (remainder >>> 8) $ table[1 + word]  # @inbounds no help here
+    end
+    remainder
+end
 
 function loop_word_ref{D<:U, A<:U
                        }(::Type{D}, remainder::A, data, table::Vector{A}, word_size)
@@ -276,12 +300,13 @@ end
 # use a table whose index is smaller than the size of the input data words
 # (for efficiency it must be an exact divisor).
 
-function rem_small_table{D<:U, A<:U, P<:U
+function crc_small_table{D<:U, A<:U, P<:U
                          }(::Type{D}, degree, poly::P, data, table::Vector{A};
-                           init=0, refin=false, refout=false)
+                           init=0, refin=false, refout=false, xorout=0)
 
-    poly::A, init::A, width, pad, carry::A, rem_mask::A, load, word_size = 
-        check_poly(D, A, degree, poly, init, refin)
+    check_data(D, data)
+    poly::A, init::A, width, pad, carry::A, rem_mask::A, load, word_size, xorout::P = 
+        check_poly(D, A, degree, poly, init, refin, xorout)
     index_size = measure_table(table)
     @assert word_size >= index_size "incorrect index size (not small)"
     @assert word_size % index_size == 0 "incorrect index size (not divisor of word size)"
@@ -296,14 +321,14 @@ function rem_small_table{D<:U, A<:U, P<:U
         remainder = loop_small_table(D, init, data, table, load, n_shifts,
                                      index_mask, index_size, index_shift)
     end
-    fix_remainder(P, degree, remainder, rem_mask, pad, refin, refout)
+    fix_remainder(P, degree, remainder, rem_mask, pad, refin, refout, xorout)
 end
 
-rem_small_table{D<:U, A<:U, P<:U
+crc_small_table{D<:U, A<:U, P<:U
                 }(degree, poly::P, data::Vector{D}, table::Vector{A}; 
-                  init=0, refin=false, refout=false) = 
-                  rem_small_table(D, degree, poly, data, table, 
-                                  init=init, refin=refin, refout=refout)
+                  init=0, refin=false, refout=false, xorout=0) = 
+                  crc_small_table(D, degree, poly, data, table, 
+                                  init=init, refin=refin, refout=refout, xorout=xorout)
 
 function loop_small_table_ref{D<:U, A<:U
                               }(::Type{D}, remainder::A, data, table::Vector{A},
@@ -339,12 +364,13 @@ end
 # use a table whose index is larger than the size of the input data
 # words (for efficiency it must be an exact multiple).
 
-function rem_large_table{D<:U, A<:U, P<:U
+function crc_large_table{D<:U, A<:U, P<:U
                          }(::Type{D}, degree, poly::P, data, table::Vector{A};
-                           init=0, refin=false, refout=false)
+                           init=0, refin=false, refout=false, xorout=0)
 
-    poly::A, init::A, width, pad, carry::A, rem_mask::A, load, word_size = 
-        check_poly(D, A, degree, poly, init, refin)
+    check_data(D, data)
+    poly::A, init::A, width, pad, carry::A, rem_mask::A, load, word_size, xorout::P = 
+        check_poly(D, A, degree, poly, init, refin, xorout)
     index_size = measure_table(table)
     @assert word_size <= index_size "incorrect index size (not large)"
     @assert index_size % word_size == 0 "incorrect index size (not multiple of word size)"
@@ -359,14 +385,14 @@ function rem_large_table{D<:U, A<:U, P<:U
         remainder = loop_large_table(D, init, data, table, load, word_size,
                                      n_shifts, index_size, index_shift)
     end
-    fix_remainder(P, degree, remainder, rem_mask, pad, refin, refout)
+    fix_remainder(P, degree, remainder, rem_mask, pad, refin, refout, xorout)
 end
 
-rem_large_table{D<:U, A<:U, P<:U
+crc_large_table{D<:U, A<:U, P<:U
                 }(degree, poly::P, data::Vector{D}, table::Vector{A}; 
-                  init=0, refin=false, refout=false) = 
-                  rem_large_table(D, degree, poly, data, table, 
-                                  init=init, refin=refin, refout=refout)
+                  init=0, refin=false, refout=false, xorout=0) = 
+                  crc_large_table(D, degree, poly, data, table, 
+                                  init=init, refin=refin, refout=refout, xorout=xorout)
 
 function loop_large_table_ref{D<:U, A<:U
                               }(::Type{D}, remainder::A, data, table::Vector{A},
@@ -452,12 +478,11 @@ end
 
 
 TEST = b"123456789"
-MAX_INDEX_SIZE = 16
-DEFAULT_A = Uint
+#MAX_INDEX_SIZE = 16
+#DEFAULT_A = Uint
 
 
-type Std{A<:U, P<:U}
-
+type Spec{P<:U}
     # http://www.zlib.net/crc_v3.txt
     width::Int    # polynomial degree
     poly::P       # generating poly with msb missing
@@ -466,126 +491,131 @@ type Std{A<:U, P<:U}
     refout::Bool  # reflect output
     xorout::P     # xored with final remainder
     test::P       # checksum for TEST
-
-    index_size::Int  # number of bits used to index the lookup table
-    table::Vector{A}
-
-    # this leaves the table undefined, to be created on first use
-    Std(width::Int, poly::P, init::P, refin::Bool, refout::Bool, xorout::P, test::P, index_size::Int) = new(width, poly, init, refin, refout, xorout, test, index_size)
-    
 end
 
 
-function defaults(width)
-    index_size = min(MAX_INDEX_SIZE, 8 * sizeof(to_uint(width)))
+#function defaults(width)
+#    index_size = min(MAX_INDEX_SIZE, 8 * sizeof(to_uint(width)))
 #    index_size = 8
-    A = to_uint(width)
-    A, index_size
-end
+#    A = to_uint(width)
+#    A, index_size
+#end
 
-function Std{P<:U}(width::Int, poly::P, init::P, refin::Bool, refout::Bool, xorout::P, test::P)
-    A, index_size = defaults(width)
-    Std{A, P}(width, poly, init, refin, refout, xorout, test, index_size)
-end
-
-Std{P<:U}(poly::P, init::P, refin::Bool, refout::Bool, xorout::P, test::P) = Std(8*sizeof(P), poly, init, refin, refout, xorout, test)
+Spec{P<:U}(poly::P, init::P, refin::Bool, refout::Bool, xorout::P, test::P) = 
+    Spec(8*sizeof(P), poly, init, refin, refout, xorout, test)
 
 
 # http://reveng.sourceforge.net/crc-catalogue/1-15.htm
-CRC_3_ROHC =         Std(3, 0x03, 0x07, true,  true,  0x00, 0x06)
-CRC_4_ITU =          Std(4, 0x03, 0x00, true,  true,  0x00, 0x07)
-CRC_5_EPC =          Std(5, 0x09, 0x09, false, false, 0x00, 0x00)
-CRC_5_ITU =          Std(5, 0x15, 0x00, true,  true,  0x00, 0x07)
-CRC_5_USB =          Std(5, 0x05, 0x1f, true,  true,  0x1f, 0x19)
-CRC_6_CDMA2000_A =   Std(6, 0x27, 0x3f, false, false, 0x00, 0x0d)
-CRC_6_CDMA2000_B =   Std(6, 0x07, 0x3f, false, false, 0x00, 0x3b)
-CRC_6_DARC =         Std(6, 0x19, 0x00, true,  true,  0x00, 0x26)
-CRC_6_ITU =          Std(6, 0x03, 0x00, true,  true,  0x00, 0x06)
-CRC_7 =              Std(7, 0x09, 0x00, false, false, 0x00, 0x75)
-CRC_7_ROHC =         Std(7, 0x4f, 0x7f, true,  true,  0x00, 0x53)
-CRC_8 =              Std(0x07, 0x00, false, false, 0x00, 0xf4)
-CRC_8_CDMA2000 =     Std(0x9b, 0xff, false, false, 0x00, 0xda)
-CRC_8_DARC =         Std(0x39, 0x00, true,  true,  0x00, 0x15)
-CRC_8_DVB_S2 =       Std(0xd5, 0x00, false, false, 0x00, 0xbc)
-CRC_8_EBU =          Std(0x1d, 0xff, true,  true,  0x00, 0x97)
-CRC_8_I_CODE =       Std(0x1d, 0xfd, false, false, 0x00, 0x7e)
-CRC_8_ITU =          Std(0x07, 0x00, false, false, 0x55, 0xa1)
-CRC_8_MAXIM =        Std(0x31, 0x00, true,  true,  0x00, 0xa1)
-CRC_8_ROHC =         Std(0x07, 0xff, true,  true,  0x00, 0xd0)
-CRC_8_WCDMA =        Std(0x9b, 0x00, true,  true,  0x00, 0x25)
-CRC_10 =             Std(10, 0x0233, 0x0000, false, false, 0x0000, 0x0199)
-CRC_10_CDMA2000 =    Std(10, 0x03d9, 0x03ff, false, false, 0x0000, 0x0233)
-CRC_11 =             Std(11, 0x0385, 0x001a, false, false, 0x0000, 0x05a3)
-CRC_12_3GPP =        Std(12, 0x080f, 0x0000, false, true,  0x0000, 0x0daf)
-CRC_12_CDMA2000 =    Std(12, 0x0f13, 0x0fff, false, false, 0x0000, 0x0d4d)
-CRC_12_DECT =        Std(12, 0x080f, 0x0000, false, false, 0x0000, 0x0f5b)
-CRC_13_BBC =         Std(13, 0x1cf5, 0x0000, false, false, 0x0000, 0x04fa)
-CRC_14_DARC =        Std(14, 0x0805, 0x0000, true,  true,  0x0000, 0x082d)
-CRC_15 =             Std(15, 0x4599, 0x0000, false, false, 0x0000, 0x059e)
-CRC_15_MPT1327 =     Std(15, 0x6815, 0x0000, false, false, 0x0001, 0x2566)
+CRC_3_ROHC =         Spec(3, 0x03, 0x07, true,  true,  0x00, 0x06)
+CRC_4_ITU =          Spec(4, 0x03, 0x00, true,  true,  0x00, 0x07)
+CRC_5_EPC =          Spec(5, 0x09, 0x09, false, false, 0x00, 0x00)
+CRC_5_ITU =          Spec(5, 0x15, 0x00, true,  true,  0x00, 0x07)
+CRC_5_USB =          Spec(5, 0x05, 0x1f, true,  true,  0x1f, 0x19)
+CRC_6_CDMA2000_A =   Spec(6, 0x27, 0x3f, false, false, 0x00, 0x0d)
+CRC_6_CDMA2000_B =   Spec(6, 0x07, 0x3f, false, false, 0x00, 0x3b)
+CRC_6_DARC =         Spec(6, 0x19, 0x00, true,  true,  0x00, 0x26)
+CRC_6_ITU =          Spec(6, 0x03, 0x00, true,  true,  0x00, 0x06)
+CRC_7 =              Spec(7, 0x09, 0x00, false, false, 0x00, 0x75)
+CRC_7_ROHC =         Spec(7, 0x4f, 0x7f, true,  true,  0x00, 0x53)
+CRC_8 =              Spec(0x07, 0x00, false, false, 0x00, 0xf4)
+CRC_8_CDMA2000 =     Spec(0x9b, 0xff, false, false, 0x00, 0xda)
+CRC_8_DARC =         Spec(0x39, 0x00, true,  true,  0x00, 0x15)
+CRC_8_DVB_S2 =       Spec(0xd5, 0x00, false, false, 0x00, 0xbc)
+CRC_8_EBU =          Spec(0x1d, 0xff, true,  true,  0x00, 0x97)
+CRC_8_I_CODE =       Spec(0x1d, 0xfd, false, false, 0x00, 0x7e)
+CRC_8_ITU =          Spec(0x07, 0x00, false, false, 0x55, 0xa1)
+CRC_8_MAXIM =        Spec(0x31, 0x00, true,  true,  0x00, 0xa1)
+CRC_8_ROHC =         Spec(0x07, 0xff, true,  true,  0x00, 0xd0)
+CRC_8_WCDMA =        Spec(0x9b, 0x00, true,  true,  0x00, 0x25)
+CRC_10 =             Spec(10, 0x0233, 0x0000, false, false, 0x0000, 0x0199)
+CRC_10_CDMA2000 =    Spec(10, 0x03d9, 0x03ff, false, false, 0x0000, 0x0233)
+CRC_11 =             Spec(11, 0x0385, 0x001a, false, false, 0x0000, 0x05a3)
+CRC_12_3GPP =        Spec(12, 0x080f, 0x0000, false, true,  0x0000, 0x0daf)
+CRC_12_CDMA2000 =    Spec(12, 0x0f13, 0x0fff, false, false, 0x0000, 0x0d4d)
+CRC_12_DECT =        Spec(12, 0x080f, 0x0000, false, false, 0x0000, 0x0f5b)
+CRC_13_BBC =         Spec(13, 0x1cf5, 0x0000, false, false, 0x0000, 0x04fa)
+CRC_14_DARC =        Spec(14, 0x0805, 0x0000, true,  true,  0x0000, 0x082d)
+CRC_15 =             Spec(15, 0x4599, 0x0000, false, false, 0x0000, 0x059e)
+CRC_15_MPT1327 =     Spec(15, 0x6815, 0x0000, false, false, 0x0001, 0x2566)
 
 # http://reveng.sourceforge.net/crc-catalogue/16.htm#crc.cat.crc-16-ccitt-false
-CRC_16_ARC =         Std(0x8005, 0x0000, true,  true,  0x0000, 0xbb3d)
-CRC_16_AUG_CCITT =   Std(0x1021, 0x1d0f, false, false, 0x0000, 0xe5cc)
-CRC_16_BUYPASS   =   Std(0x8005, 0x0000, false, false, 0x0000, 0xfee8)
-CRC_16_CCITT_FALSE = Std(0x1021, 0xffff, false, false, 0x0000, 0x29b1)
-CRC_16_CDMA2000 =    Std(0xc867, 0xffff, false, false, 0x0000, 0x4c06)
-CRC_16_DDS_110 =     Std(0x8005, 0x800d, false, false, 0x0000, 0x9ecf)
-CRC_16_DECT_R =      Std(0x0589, 0x0000, false, false, 0x0001, 0x007e)
-CRC_16_DECT_X =      Std(0x0589, 0x0000, false, false, 0x0000, 0x007f)
-CRC_16_DNP =         Std(0x3d65, 0x0000, true,  true,  0xffff, 0xea82)
-CRC_16_EN_13757 =    Std(0x3d65, 0x0000, false, false, 0xffff, 0xc2b7)
-CRC_16_GENIBUS =     Std(0x1021, 0xffff, false, false, 0xffff, 0xd64e)
-CRC_16_MAXIM =       Std(0x8005, 0x0000, true,  true,  0xffff, 0x44c2)
-CRC_16_RIELLO =      Std(0x8bb7, 0x0000, false, false, 0x0000, 0xd0db)
-CRC_16_TELEDISK =    Std(0x1021, 0x89ec, true,  true,  0x0000, 0x26b1)
-CRC_16_USB =         Std(0x8005, 0xffff, true,  true,  0xffff, 0xb4c8)
-CRC_16_CRC_A =       Std(0x1021, 0xc6c6, true,  true,  0x0000, 0xbf05)
-CRC_16_KERMIT =      Std(0x1021, 0x0000, true,  true,  0x0000, 0x2189)
-CRC_16_MODBUS =      Std(0x8005, 0xffff, true,  true,  0x0000, 0x4b37)
-CRC_16_X_25 =        Std(0x1021, 0xffff, true,  true,  0xffff, 0x906e)
-CRC_16_XMODEM =      Std(0x1021, 0x0000, false, false, 0x0000, 0x31c3)
+CRC_16_ARC =         Spec(0x8005, 0x0000, true,  true,  0x0000, 0xbb3d)
+CRC_16_AUG_CCITT =   Spec(0x1021, 0x1d0f, false, false, 0x0000, 0xe5cc)
+CRC_16_BUYPASS   =   Spec(0x8005, 0x0000, false, false, 0x0000, 0xfee8)
+CRC_16_CCITT_FALSE = Spec(0x1021, 0xffff, false, false, 0x0000, 0x29b1)
+CRC_16_CDMA2000 =    Spec(0xc867, 0xffff, false, false, 0x0000, 0x4c06)
+CRC_16_DDS_110 =     Spec(0x8005, 0x800d, false, false, 0x0000, 0x9ecf)
+CRC_16_DECT_R =      Spec(0x0589, 0x0000, false, false, 0x0001, 0x007e)
+CRC_16_DECT_X =      Spec(0x0589, 0x0000, false, false, 0x0000, 0x007f)
+CRC_16_DNP =         Spec(0x3d65, 0x0000, true,  true,  0xffff, 0xea82)
+CRC_16_EN_13757 =    Spec(0x3d65, 0x0000, false, false, 0xffff, 0xc2b7)
+CRC_16_GENIBUS =     Spec(0x1021, 0xffff, false, false, 0xffff, 0xd64e)
+CRC_16_MAXIM =       Spec(0x8005, 0x0000, true,  true,  0xffff, 0x44c2)
+CRC_16_RIELLO =      Spec(0x8bb7, 0x0000, false, false, 0x0000, 0xd0db)
+CRC_16_TELEDISK =    Spec(0x1021, 0x89ec, true,  true,  0x0000, 0x26b1)
+CRC_16_USB =         Spec(0x8005, 0xffff, true,  true,  0xffff, 0xb4c8)
+CRC_16_CRC_A =       Spec(0x1021, 0xc6c6, true,  true,  0x0000, 0xbf05)
+CRC_16_KERMIT =      Spec(0x1021, 0x0000, true,  true,  0x0000, 0x2189)
+CRC_16_MODBUS =      Spec(0x8005, 0xffff, true,  true,  0x0000, 0x4b37)
+CRC_16_X_25 =        Spec(0x1021, 0xffff, true,  true,  0xffff, 0x906e)
+CRC_16_XMODEM =      Spec(0x1021, 0x0000, false, false, 0x0000, 0x31c3)
 
 # http://reveng.sourceforge.net/crc-catalogue/17plus.htm
-CRC_24 =             Std(24, 0x00864cfb, 0x00b704ce, false, false, 0x00000000, 0x0021cf02)
-CRC_24_FLEXRAY_A =   Std(24, 0x005d6dcb, 0x00fedcba, false, false, 0x00000000, 0x007979bd)
-CRC_24_FLEXRAY_B =   Std(24, 0x005d6dcb, 0x00abcdef, false, false, 0x00000000, 0x001f23b8)
-CRC_31_PHILIPS =     Std(31, 0x04c11db7, 0x7fffffff, false, false, 0x7fffffff, 0x0ce9e46c)
-CRC_32 =             Std(0x04c11db7, 0xffffffff, true,  true,  0xffffffff, 0xcbf43926)
-CRC_32_BZIP2 =       Std(0x04c11db7, 0xffffffff, false, false, 0xffffffff, 0xfc891918)
-CRC_32_C =           Std(0x1edc6f41, 0xffffffff, true,  true,  0xffffffff, 0xe3069283)
-CRC_32_D =           Std(0xa833982b, 0xffffffff, true,  true,  0xffffffff, 0x87315576)
-CRC_32_MPEG_2 =      Std(0x04c11db7, 0xffffffff, false, false, 0x00000000, 0x0376e6e7)
-CRC_32_POSIX =       Std(0x04c11db7, 0x00000000, false, false, 0xffffffff, 0x765e7680)
-CRC_32_Q =           Std(0x814141ab, 0x00000000, false, false, 0x00000000, 0x3010bf7f)
-CRC_32_JAMCRC =      Std(0x04c11db7, 0xffffffff, true,  true,  0x00000000, 0x340bc6d9)
-CRC_32_XFER =        Std(0x000000af, 0x00000000, false, false, 0x00000000, 0xbd0be338)
-CRC_40_GSM =         Std(40, 0x0000000004820009, 0x0000000000000000, false, false, 0x000000ffffffffff, 0x000000d4164fc646)
-CRC_64 =             Std(0x42f0e1eba9ea3693, 0x0000000000000000, false, false, 0x0000000000000000, 0x6c40df5f0b497347)
-CRC_64_WE =          Std(0x42f0e1eba9ea3693, 0xffffffffffffffff, false, false, 0xffffffffffffffff, 0x62ec59e3f1a4f00a)
-CRC_64_XZ =          Std(0x42f0e1eba9ea3693, 0xffffffffffffffff, true,  true,  0xffffffffffffffff, 0x995dc9bbdf1939fa)
-CRC_82_DARC =        Std(82, 0x0308c0111011401440411, 0x000000000000000000000, true,  true,   0x000000000000000000000, 0x09ea83f625023801fd612)
+CRC_24 =             Spec(24, 0x00864cfb, 0x00b704ce, false, false, 0x00000000, 0x0021cf02)
+CRC_24_FLEXRAY_A =   Spec(24, 0x005d6dcb, 0x00fedcba, false, false, 0x00000000, 0x007979bd)
+CRC_24_FLEXRAY_B =   Spec(24, 0x005d6dcb, 0x00abcdef, false, false, 0x00000000, 0x001f23b8)
+CRC_31_PHILIPS =     Spec(31, 0x04c11db7, 0x7fffffff, false, false, 0x7fffffff, 0x0ce9e46c)
+CRC_32 =             Spec(0x04c11db7, 0xffffffff, true,  true,  0xffffffff, 0xcbf43926)
+CRC_32_BZIP2 =       Spec(0x04c11db7, 0xffffffff, false, false, 0xffffffff, 0xfc891918)
+CRC_32_C =           Spec(0x1edc6f41, 0xffffffff, true,  true,  0xffffffff, 0xe3069283)
+CRC_32_D =           Spec(0xa833982b, 0xffffffff, true,  true,  0xffffffff, 0x87315576)
+CRC_32_MPEG_2 =      Spec(0x04c11db7, 0xffffffff, false, false, 0x00000000, 0x0376e6e7)
+CRC_32_POSIX =       Spec(0x04c11db7, 0x00000000, false, false, 0xffffffff, 0x765e7680)
+CRC_32_Q =           Spec(0x814141ab, 0x00000000, false, false, 0x00000000, 0x3010bf7f)
+CRC_32_JAMCRC =      Spec(0x04c11db7, 0xffffffff, true,  true,  0x00000000, 0x340bc6d9)
+CRC_32_XFER =        Spec(0x000000af, 0x00000000, false, false, 0x00000000, 0xbd0be338)
+CRC_40_GSM =         Spec(40, 0x0000000004820009, 0x0000000000000000, false, false, 0x000000ffffffffff, 0x000000d4164fc646)
+CRC_64 =             Spec(0x42f0e1eba9ea3693, 0x0000000000000000, false, false, 0x0000000000000000, 0x6c40df5f0b497347)
+CRC_64_WE =          Spec(0x42f0e1eba9ea3693, 0xffffffffffffffff, false, false, 0xffffffffffffffff, 0x62ec59e3f1a4f00a)
+CRC_64_XZ =          Spec(0x42f0e1eba9ea3693, 0xffffffffffffffff, true,  true,  0xffffffffffffffff, 0x995dc9bbdf1939fa)
+CRC_82_DARC =        Spec(82, 0x0308c0111011401440411, 0x000000000000000000000, true,  true,   0x000000000000000000000, 0x09ea83f625023801fd612)
 
 
-function crc{D<:U, A<:U, P<:U}(::Type{D}, std::Std{A, P}, data)
-    if !isdefined(std, :table)
-        std.table = make_table(A, std.width, std.poly, std.index_size, refin=std.refin)
-    end
-    word_size = 8 * sizeof(D)
-    if word_size == std.index_size
-        remainder = rem_word_table(D, std.width, std.poly, data, std.table; 
-                                   init=std.init, refin=std.refin, refout=std.refout)
-    elseif word_size > std.index_size
-        remainder = rem_small_table(D, std.width, std.poly, data, std.table; 
-                                    init=std.init, refin=std.refin, refout=std.refout)
+# table inside closure - allows for re-use of table
+
+function crc{D<:U, A<:U, P<:U}(spec::Spec{P}, ::Type{D}, ::Type{A}; 
+                               table=true, index_size=8)
+    if table
+        t = make_table(A, spec.width, spec.poly, index_size, refin=spec.refin)
+        word_size = 8 * sizeof(D)
+        if word_size == index_size
+            data -> crc_word_table(D, spec.width, spec.poly, data, t,
+                                   init=spec.init, refin=spec.refin, refout=spec.refout, xorout=spec.xorout)
+        elseif word_size > index_size
+            data -> crc_small_table(D, spec.width, spec.poly, data, t, 
+                                    init=spec.init, refin=spec.refin, refout=spec.refout, xorout=spec.xorout)
+        else
+            data -> crc_large_table(D, spec.width, spec.poly, data, t,
+                                    init=spec.init, refin=spec.refin, refout=spec.refout, xorout=spec.xorout)
+        end
     else
-        remainder = rem_large_table(D, std.width, std.poly, data, std.table; 
-                                    init=std.init, refin=std.refin, refout=std.refout)
+        data -> crc_no_table(D, A, spec.width, spec.poly, data,
+                             init=spec.init, refin=spec.refin, refout=spec.refout, xorout=spec.xorout)
     end
-    remainder $ std.xorout
 end
 
-crc{D<:U, A<:U, P<:U}(std::Std{A, P}, data::Vector{D}) = crc(D, std, data)
+crc{D<:U, P<:U}(spec::Spec{P}, ::Type{D}; 
+                table=true, index_size=8) = crc(spec, D, Uint64)
 
+
+# single shot (table not cached)
+
+crc{D<:U, A<:U, P<:U}(spec::Spec{P}, data::Vector{D}, ::Type{A}; 
+                      table=true, index_size=8) = 
+    crc(spec, D, A, table=table, index_size=index_size)(data)
+
+crc{D<:U, P<:U}(spec::Spec{P}, data::Vector{D}; 
+                table=true, index_size=8) = 
+    crc(spec, data, Uint64, table=table, index_size=index_size)
 
 end
