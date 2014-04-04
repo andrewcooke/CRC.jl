@@ -3,7 +3,7 @@
 This is a [Julia](http://julialang.org/) module for calculating Cyclic
 Redundancy Checksums (CRCs).
 
-* All the algoirthms in the [Reveng
+* All the algoirthms in the [RevEng
   Catalogue](http://reveng.sourceforge.net/crc-catalogue) are supported.
 
 * New algorithms can be easilly added.
@@ -13,7 +13,7 @@ Redundancy Checksums (CRCs).
 
 * Calculation can be direct or via tabules.
 
-* Speed is currently about 4x *slower* than optimized C (eg when
+* Speed is currently about 3-4x *slower* than optimized C (eg when
   compared to the CRC32 zlib implementation).
 
 ## Examples
