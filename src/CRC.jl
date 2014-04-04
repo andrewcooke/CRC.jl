@@ -10,6 +10,8 @@
 # http://en.wikipedia.org/wiki/Computation_of_cyclic_redundancy_checks
 # and http://www.zlib.net/crc_v3.txt
 
+# TODO - would @inbounds help in the loops?
+
 
 module CRC
 
@@ -291,12 +293,13 @@ function rem_small_table{D<:U, A<:U, P<:U
     index_size = measure_table(table)
     @assert word_size >= index_size "incorrect index size (not small)"
     @assert word_size % index_size == 0 "incorrect index size (not divisor of word size)"
-    index_shift = width - index_size
+    index_shift = refin ? 0 : width - index_size
     index_mask::A = convert(A, (one(Uint128) << index_size) - 1) << index_shift
     n_shifts = div(word_size, index_size)
 
     if refin
-        remainder = loop_small_table_ref()
+        remainder = loop_small_table_ref(D, init, data, table, n_shifts,
+                                         index_mask, index_size)
     else
         remainder = loop_small_table(D, init, data, table, load, n_shifts,
                                      index_mask, index_size, index_shift)
@@ -310,7 +313,19 @@ rem_small_table{D<:U, A<:U, P<:U
                   rem_small_table(D, degree, poly, data, table, 
                                   init=init, refin=refin, refout=refout)
 
-function loop_small_table_ref()
+function loop_small_table_ref{D<:U, A<:U
+                              }(::Type{D}, remainder::A, data, table::Vector{A},
+                                n_shifts, index_mask, index_size)
+    for word::D in data
+        # TODO - can this be xored just once at the start?
+        tmp::A = convert(A, word)
+        for _ in 1:n_shifts
+            remainder::A = remainder $ (tmp & index_mask)
+            remainder = (remainder >>> index_size) $ table[1 + (remainder & index_mask)]
+            tmp >>>= index_size
+        end
+    end
+    remainder
 end
 
 function loop_small_table{D<:U, A<:U

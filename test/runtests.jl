@@ -165,6 +165,19 @@ function test_rem_small_table()
         @test c2.i == c1
         print(".")
 
+        # now swap the bytes and use refin
+        a1r = collect(Uint8, map(reflect, a1))
+        c1r = rem_small_table(8, b1, a1r, make_table(Uint8, 8, b1, 8*sizeof(a1r[1]), true), refin=true)
+        @test c1r < b2
+        @test c2.i == c1r
+        c1r = rem_small_table(8, b1, a1r, make_table(Uint8, 8, b1, 4*sizeof(a1r[1]), true), refin=true)
+        @test c1r < b2
+        @test c2.i == c1r
+        c1r = rem_small_table(8, b1, a1r, make_table(Uint16, 8, b1, 4*sizeof(a1r[1]), true), refin=true)
+        @test c1r < b2
+        @test c2.i == c1r
+        print(".")
+
         # using the same data, a 3rd degree generator with 2 bytes of data.
         b1 = convert(Uint8, (1 << 3) | (b1 & ((1 << 3) - 1)))
         a2 = convert(Uint64, convert(Uint64, a1[1]) << 11 + convert(Uint64, a1[2]) << 3)
