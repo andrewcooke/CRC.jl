@@ -8,10 +8,12 @@ Redundancy Checksums (CRCs).
 
 * New algorithms can be easilly added.
 
-* CRCs can be calculated for sequences of integers of any common size 
-  (from 8bit bytes to 128bit long long words).
+* CRCs can be calculated for sequences of integers of any common size
+  (from 8 bit bytes to 128 bit long long words).
 
-* Calculation can be direct or via tabules.
+* Calculation can be direct or via tables.
+
+* Table sizes (number of index bits) can be specified (default 8 bits).
 
 * Speed is currently about 3-4x *slower* than optimized C (eg when
   compared to the CRC32 zlib implementation).
