@@ -208,7 +208,8 @@ end
 # generate a lookup table of the requested size
 
 function make_table{A<:U, P<:U
-                    }(::Type{A}, degree, poly::P, index_size, refin)
+                    }(::Type{A}, degree, poly::P, index_size;
+                      refin=false)
 
     @assert index_size < 33 "table too large"  # even this is huge
     @assert largest(A, index_size) == A "accumulator too narrow for index"
@@ -347,7 +348,9 @@ end
 # use a table whose index is larger than the size of the input data
 # words (for efficiency it must be an exact multiple).
 
-function rem_large_table{D<:U, A<:U, P<:U}(::Type{D}, degree, poly::P, data, table::Vector{A}; init=0)
+function rem_large_table{D<:U, A<:U, P<:U
+                         }(::Type{D}, degree, poly::P, data, table::Vector{A};
+                           init=0, refin=false, refout=false)
     poly::A, width, pad, carry::A, rem_mask::A, load, word_size = check_poly(D, A, degree, poly)
     index_size = check_large_table(word_size, table)
     index_shift = width - index_size

@@ -86,7 +86,7 @@ function test_rem_word_table()
         b1 = rand(Uint8)
         a2 = convert(Uint64, convert(Uint64, a1[1]) << 16 + convert(Uint64, a1[2]) << 8)
         b2 = convert(Uint64, (1 << 8) | b1)
-        c1 = rem_word_table(8, b1, a1, make_table(Uint8, 8, b1, 8*sizeof(a1[1]), false))
+        c1 = rem_word_table(8, b1, a1, make_table(Uint8, 8, b1, 8*sizeof(a1[1])))
         c2 = GF2Poly(a2) % GF2Poly(b2)
         @test c1 < b2
         @test c2.i < b2
@@ -104,7 +104,7 @@ function test_rem_word_table()
         b1 = convert(Uint8, (1 << 3) | (b1 & ((1 << 3) - 1)))
         a2 = convert(Uint64, convert(Uint64, a1[1]) << 11 + convert(Uint64, a1[2]) << 3)
         b2 = convert(Uint64, b1)
-        c1 = rem_word_table(3, b1, a1, make_table(Uint8, 3, b1, 8*sizeof(a1[1]), false))
+        c1 = rem_word_table(3, b1, a1, make_table(Uint8, 3, b1, 8*sizeof(a1[1])))
         c2 = GF2Poly(a2) % GF2Poly(b2)
         @test c1 < b2
         @test c2.i < b2
@@ -117,7 +117,7 @@ function test_rem_word_table()
         b1 = rand(Uint16)
         a2 = convert(Uint64, convert(Uint64, a1[1]) << 32 + convert(Uint64, a1[2]) << 24 + convert(Uint64, a1[3]) << 16)
         b2 = convert(Uint64, (1 << 16) | b1)
-        c1 = rem_word_table(16, b1, a1, make_table(Uint16, 16, b1, 8*sizeof(a1[1]), false))
+        c1 = rem_word_table(16, b1, a1, make_table(Uint16, 16, b1, 8*sizeof(a1[1])))
         c2 = GF2Poly(a2) % GF2Poly(b2)
         @test c1 < b2
         @test c2.i < b2
@@ -129,7 +129,7 @@ function test_rem_word_table()
         b1 = convert(Uint16, (1 << 9) | (b1 & ((1 << 9) - 1)))
         a2 = convert(Uint64, convert(Uint64, a1[1]) << 25 + convert(Uint64, a1[2]) << 17 + convert(Uint64, a1[3]) << 9)
         b2 = convert(Uint64, b1)
-        c1 = rem_word_table(9, b1, a1, make_table(Uint16, 9, b1, 8*sizeof(a1[1]), false))
+        c1 = rem_word_table(9, b1, a1, make_table(Uint16, 9, b1, 8*sizeof(a1[1])))
         c2 = GF2Poly(a2) % GF2Poly(b2)
         @test c1 < b2
         @test c2.i < b2
@@ -154,13 +154,13 @@ function test_rem_small_table()
         b2 = convert(Uint64, (1 << 8) | b1)
         c2 = GF2Poly(a2) % GF2Poly(b2)
         @test c2.i < b2
-        c1 = rem_small_table(8, b1, a1, make_table(Uint8, 8, b1, 8*sizeof(a1[1]), false))
+        c1 = rem_small_table(8, b1, a1, make_table(Uint8, 8, b1, 8*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
-        c1 = rem_small_table(8, b1, a1, make_table(Uint8, 8, b1, 4*sizeof(a1[1]), false))
+        c1 = rem_small_table(8, b1, a1, make_table(Uint8, 8, b1, 4*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
-        c1 = rem_small_table(8, b1, a1, make_table(Uint16, 8, b1, 4*sizeof(a1[1]), false))
+        c1 = rem_small_table(8, b1, a1, make_table(Uint16, 8, b1, 4*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
         print(".")
@@ -184,10 +184,10 @@ function test_rem_small_table()
         b2 = convert(Uint64, b1)
         c2 = GF2Poly(a2) % GF2Poly(b2)
         @test c2.i < b2
-        c1 = rem_small_table(3, b1, a1, make_table(Uint8, 3, b1, 8*sizeof(a1[1]), false))
+        c1 = rem_small_table(3, b1, a1, make_table(Uint8, 3, b1, 8*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
-        c1 = rem_small_table(3, b1, a1, make_table(Uint16, 3, b1, 4*sizeof(a1[1]), false))
+        c1 = rem_small_table(3, b1, a1, make_table(Uint16, 3, b1, 4*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
         print(".")
@@ -200,10 +200,10 @@ function test_rem_small_table()
         b2 = convert(Uint64, (1 << 16) | b1)
         c2 = GF2Poly(a2) % GF2Poly(b2)
         @test c2.i < b2
-        c1 = rem_small_table(16, b1, a1, make_table(Uint16, 16, b1, 8*sizeof(a1[1]), false))
+        c1 = rem_small_table(16, b1, a1, make_table(Uint16, 16, b1, 8*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
-        c1 = rem_small_table(16, b1, a1, make_table(Uint64, 16, b1, 2*sizeof(a1[1]), false))
+        c1 = rem_small_table(16, b1, a1, make_table(Uint64, 16, b1, 2*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
         print(".")
@@ -215,10 +215,10 @@ function test_rem_small_table()
         b2 = convert(Uint64, b1)
         c2 = GF2Poly(a2) % GF2Poly(b2)
         @test c2.i < b2
-        c1 = rem_small_table(9, b1, a1, make_table(Uint64, 9, b1, 8*sizeof(a1[1]), false))
+        c1 = rem_small_table(9, b1, a1, make_table(Uint64, 9, b1, 8*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
-        c1 = rem_small_table(9, b1, a1, make_table(Uint16, 9, b1, 1*sizeof(a1[1]), false))
+        c1 = rem_small_table(9, b1, a1, make_table(Uint16, 9, b1, 1*sizeof(a1[1])))
         @test c1 < b2
         @test c2.i == c1
         print(".")
