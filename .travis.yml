@@ -12,4 +12,5 @@ before_install:
   - sudo apt-get update -qq -y
   - sudo apt-get install libpcre3-dev julia -y
 script:
-  - julia -e 'Pkg.init(); Pkg.clone(pwd()); Pkg.test("CRC")'
+#  - julia -e 'Pkg.init(); Pkg.clone(pwd()); Pkg.test("CRC")'
+  - julia -e 'run(`ln -s $(pwd()) $(Pkg.dir("CRC"))`); Pkg.pin("CRC"); Pkg.resolve(); Pkg.test("CRC")'
