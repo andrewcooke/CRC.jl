@@ -364,6 +364,8 @@ end
 function test_types()
     # want this to give an error in case people are confused about types
     @test_throws crc(CRC_32, Uint32)(b"abc")
+    # but allow empty
+    crc(CRC_32, Uint32)(b"")
 end
 
 

@@ -86,10 +86,11 @@ function fastest(T, TS...)
     end
 end
 
-function itype(iterable)
+function itype(iterable, default)
     for i in iterable
         return typeof(i)
     end
+    return default
 end
 
 
@@ -151,7 +152,7 @@ function measure_table{A<:U}(table::Vector{A})
 end
 
 function check_data{D<:U}(::Type{D}, data)
-    @assert itype(data) == D "data not of correct size ($D / $(typeof(d))))"
+    @assert itype(data, D) == D "data not of correct size ($D / $(typeof(d))))"
 end
 
 
