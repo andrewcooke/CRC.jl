@@ -15,7 +15,7 @@ Redundancy Checksums (CRCs).
 
 * Table sizes (number of index bits) can be specified (default 8 bits).
 
-* Speed is currently about 3-4x *slower* than optimized C (eg when
+* Speed is currently about 2-4x *slower* than optimized C (eg when
   compared to the CRC32 zlib implementation).
 
 ## Examples

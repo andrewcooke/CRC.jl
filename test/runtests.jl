@@ -1,3 +1,4 @@
+
 using CRC
 using Base.Test
 using IntModN
@@ -343,7 +344,7 @@ function test_tests()
                 @test remainder == s.test 
                 print(".")
                 
-                for index_size in (8, 16)
+                for index_size in (4, 8, 16)
                     if index_size <= 8*sizeof(A)
                         remainder = crc(s, TEST, A, index_size=index_size)
                         if remainder != s.test 
