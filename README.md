@@ -8,8 +8,9 @@ Redundancy Checksums (CRCs).
 
 * New algorithms can be easilly added.
 
-* CRCs can be calculated for sequences of integers of any common size
-  (from 8 bit bytes to 128 bit long long words).
+* CRCs can be calculated for sequences (any iterable container) of
+  integers of any common size (from 8 bit bytes to 128 bit long long
+  words).
 
 * Calculation can be direct or via tables.
 
