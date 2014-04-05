@@ -14,4 +14,5 @@ before_install:
 script:
   - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
   - julia -e 'Pkg.init(); Pkg.clone("https://github.com/andrewcooke/IntModN.jl")'
-  - julia -e 'Pkg.init(); Pkg.clone(pwd()); Pkg.test("CRC")'
+  - julia -e 'Pkg.init(); run(`ln -s $(pwd()) $(Pkg.dir("CRC"))`); Pkg.pin("CRC"); Pkg.resolve();'
+  - julia ~/.julia/CRC/tests/runtests.jl
