@@ -6,7 +6,7 @@ Redundancy Checksums (CRCs).
 * All the algoirthms in the [RevEng
   Catalogue](http://reveng.sourceforge.net/crc-catalogue) are supported.
 
-* New algorithms can be easilly added.
+* New algorithms can be easily added.
 
 * CRCs can be calculated for sequences (any iterable container) of
   integers of any common size (from 8 bit bytes to 128 bit long long
