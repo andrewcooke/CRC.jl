@@ -85,3 +85,8 @@ end
 for loop in (generic_loop, struct_loop, byte_loop, array_loop)
     run_std(loop)
 end
+
+#  generic_loop: elapsed time: 0.023491408 seconds (16 bytes allocated)
+#   struct_loop: elapsed time: 2.027252231 seconds (1680000168 bytes allocated)
+#     byte_loop: elapsed time: 0.02304929 seconds (16 bytes allocated)
+#    array_loop: elapsed time: 0.045178428 seconds (168 bytes allocated)
