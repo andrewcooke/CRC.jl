@@ -1,6 +1,7 @@
 
 # the core loop for several CRC calculations.  it is used by CRC32,
-# whose zlib implementation in C runs ~3 times faster than this code.
+# whose zlib implementation in C runs ~2.5 times faster than this
+# code.
 
 function generic_loop{D<:Unsigned, A<:Unsigned
                       }(::Type{D}, remainder::A, data, table::Vector{A}, word_size)
