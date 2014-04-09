@@ -268,6 +268,40 @@ crc_word_table{D<:U, A<:U, P<:U
                  crc_word_table(D, degree, poly, data, table, 
                                 init=init, refin=refin, refout=refout, xorout=xorout)
 
+#immutable Bytes
+#    a::Uint8
+#    b::Uint8
+#    c::Uint8
+#    d::Uint8
+#end
+#
+## horribly slow
+#function loop_word_ref(::Type{Uint8}, remainder::Uint64, data::Vector{Uint8}, table::Vector{Uint64}, word_size)
+#    println("zoom")
+#    r::Uint64 = remainder
+#    b = reinterpret(Bytes, r)
+#    for i in 1:length(data)
+#        @inbounds word::Uint8 = data[i]
+#        word $= b.a
+#        r = (r >>> 8) $ table[1 + word]
+#        b = reinterpret(Bytes, r)
+#    end
+#    return r
+#end
+
+## slower
+#function loop_word_ref(::Type{Uint8}, remainder::Uint64, data::Vector{Uint8}, table::Vector{Uint64}, word_size)
+#    r = Array(Uint64, 1)
+#    @inbounds r[1] = remainder
+#    b = reinterpret(Uint8, r)
+#    for i in 1:length(data)
+#        @inbounds word::Uint8 = data[i]
+#        @inbounds word $= b[1]
+#        @inbounds r[1] = (r[1] >>> 8) $ table[1 + word]  # @inbounds no help here
+#    end
+#    r[1]
+#end
+
 # this apoears to be very slightly (~15%) faster
 # curiously, both fixes (array indexing and explicit 8 bits) seem to be needed
 function loop_word_ref{A<:U

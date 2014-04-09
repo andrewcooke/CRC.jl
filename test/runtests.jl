@@ -407,6 +407,6 @@ end
 
 #println(code_native(CRC.loop_word_ref, (Int, Uint32, Array{Uint8, 1}, Uint32, Bool, Bool)))
 
-tests()
+#tests()
 #time_table_size()
 time_libz()
