@@ -22,7 +22,7 @@ immutable Bytes
     d::Uint8
 end
 
-function struct_loop(::Type{Uint8}, remainder::Uint64, data::Vector{Uint8}, table::Vector{Uint64}, word_size)
+function struct_loop(::Type{Uint8}, remainder::Uint64, data::Vector{Uint8}, table::Vector{Uint64}, ignored)
     r::Uint64 = remainder
     b = reinterpret(Bytes, r)
     for i in 1:length(data)
@@ -37,7 +37,7 @@ end
 
 # try accessing via aliased arrays
 
-function array_loop(::Type{Uint8}, remainder::Uint64, data::Vector{Uint8}, table::Vector{Uint64}, word_size)
+function array_loop(::Type{Uint8}, remainder::Uint64, data::Vector{Uint8}, table::Vector{Uint64}, ignored)
     r = Array(Uint64, 1)
     @inbounds r[1] = remainder
     b = reinterpret(Uint8, r)
@@ -55,7 +55,7 @@ end
 # the generic case.
 
 function byte_loop{A<:Unsigned
-                   }(::Type{Uint8}, remainder::A, data::Vector{Uint8}, table::Vector{A}, word_size)
+                   }(::Type{Uint8}, remainder::A, data::Vector{Uint8}, table::Vector{A}, ignored)
     for i in 1:length(data)
         @inbounds word::Uint8 = data[i]
         word $= convert(Uint8, remainder)
