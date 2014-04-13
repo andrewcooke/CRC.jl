@@ -22,31 +22,52 @@ all = [CRC_3_ROHC, CRC_4_ITU, CRC_5_EPC, CRC_5_ITU,
        CRC_64, CRC_64_WE, CRC_64_XZ, CRC_82_DARC]
 
 function test_crc_no_table()
+    print("no table")
     for spec in all
         result = crc(spec, TEST)
         if result != spec.test
             println("$spec $(hex(result)) $(hex(spec.test))")
-            @assert result == spec.test
+            @test result == spec.test
         end
+        print(".")
     end
+    println("ok")
 end
 
 function test_tables()
+    print("tables")
     tables = make_tables(Uint32, Uint32, CRC_32.width, CRC_32.poly, CRC_32.refin)
     # values from zlib crc32.h
-    @assert length(tables) == 4
+    @test length(tables) == 4
     for t in 1:4
-        @assert tables[t][1] == 0x00000000
+        @test tables[t][1] == 0x00000000
+        print(".")
     end
-    @assert tables[1][2] == 0x77073096
-    @assert tables[1][256] == 0x2d02ef8d
-    @assert tables[2][2] == 0x191b3141
-    @assert tables[4][256] == 0xde0506f1
+    @test tables[1][2] == 0x77073096
+    @test tables[1][256] == 0x2d02ef8d
+    @test tables[2][2] == 0x191b3141
+    @test tables[4][256] == 0xde0506f1
+    println("ok")
+end
+
+function test_crc_table()
+    print("table")
+    for spec in all
+        c = crc(spec, Uint8)
+        result = c(TEST)
+        if result != spec.test
+            println("$spec $(hex(result)) $(hex(spec.test))")
+            @test result == spec.test
+        end
+        print(".")
+    end
+    println("ok")
 end
 
 function tests()
     test_crc_no_table()
     test_tables()
+    test_crc_table()
 end
 
 tests()

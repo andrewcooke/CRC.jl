@@ -31,47 +31,11 @@ export crc, make_tables, TEST, CRC_3_ROHC, CRC_4_ITU, CRC_5_EPC,
        CRC_32_JAMCRC, CRC_32_XFER, CRC_40_GSM, CRC_64, CRC_64_WE,
        CRC_64_XZ, CRC_82_DARC
 
-#export to_uint, crc_no_table, make_table, crc_word_table,
-#       crc_small_table, crc_large_table, Spec, crc, ReflectWords,
-#       reflect, TEST, CRC_3_ROHC, CRC_4_ITU, CRC_5_EPC, CRC_5_ITU,
-#       CRC_5_USB, CRC_6_CDMA2000_A, CRC_6_CDMA2000_B, CRC_6_DARC,
-#       CRC_6_ITU, CRC_7, CRC_7_ROHC, CRC_8, CRC_8_CDMA2000,
-#       CRC_8_DARC, CRC_8_DVB_S2, CRC_8_EBU, CRC_8_I_CODE, CRC_8_ITU,
-#       CRC_8_MAXIM, CRC_8_ROHC, CRC_8_WCDMA, CRC_10, CRC_10_CDMA2000,
-#       CRC_11, CRC_12_3GPP, CRC_12_CDMA2000, CRC_12_DECT, CRC_13_BBC,
-#       CRC_14_DARC, CRC_15, CRC_15_MPT1327, CRC_16_ARC,
-#       CRC_16_AUG_CCITT, CRC_16_BUYPASS, CRC_16_CCITT_FALSE,
-#       CRC_16_CDMA2000, CRC_16_DDS_110, CRC_16_DECT_R, CRC_16_DECT_X,
-#       CRC_16_DNP, CRC_16_EN_13757, CRC_16_GENIBUS, CRC_16_MAXIM,
-#       CRC_16_RIELLO, CRC_16_TELEDISK, CRC_16_USB, CRC_16_CRC_A,
-#       CRC_16_KERMIT, CRC_16_MODBUS, CRC_16_X_25, CRC_16_XMODEM,
-#       CRC_24, CRC_24_FLEXRAY_A, CRC_24_FLEXRAY_B, CRC_31_PHILIPS,
-#       CRC_32, CRC_32_BZIP2, CRC_32_C, CRC_32_D, CRC_32_MPEG_2,
-#       CRC_32_POSIX, CRC_32_Q, CRC_32_JAMCRC, CRC_32_XFER, CRC_40_GSM,
-#       CRC_64, CRC_64_WE, CRC_64_XZ, CRC_82_DARC
-
-#import Base: start, done, next
-
-
-# types and bit sizes
-#   D/word_size - the input data words (nearly always Uint8)
-#   P - used to store the polynomial (msb optional) and check, also used as
-#       the type of the result
-#   A/width - accumulator / remainder and table value (all vars in inner loop)
-#             (for table-driven routines this is fixed by the table type)
-#   degree - number of (least significant) bits in P used to specific poly
-#            (plus an implicit msb)
-#   all lookup tables have an 8-bit (byte) index.
-
 typealias U Unsigned
-
-
-
-
-
 
 TEST = b"123456789"
 
+# TODO - assert type has space for width etc
 type Spec{P<:U}
     # http://www.zlib.net/crc_v3.txt
     width::Int    # polynomial degree
@@ -231,16 +195,34 @@ function fastest(T, TS...)
     end
 end
 
+function pad{A<:U}(::Type{A}, width)
+    8 * sizeof(A) - width
+end
+
+function pad{A<:U, D<:U}(::Type{A}, ::Type{D})
+    pad(A, 8*sizeof(D))
+end
+
 INDEX_SIZE = 8
 TABLE_SIZE = 256
 
 function make_tables{D<:U, A<:U, P<:U
-                     }(::Type{D}, ::Type{A}, degree, poly::P, refin)
+                     }(::Type{D}, ::Type{A}, width, poly::P, refin)
 
-    word_size = 8 * sizeof(D)
-    n_tables = word_size / INDEX_SIZE
+    n_tables = 8 * sizeof(D) / INDEX_SIZE
     tables = Vector{A}[Array(A, TABLE_SIZE) for _ in 1:n_tables]
-    poly = reflect(degree, poly)
+
+    if refin
+        make_tables_ref(tables, D, width, poly)
+    else
+        make_tables_pad(tables, D, width, poly)
+    end
+end
+
+function make_tables_ref{D<:U, A<:U, P<:U
+                         }(tables::Vector{Vector{A}}, ::Type{D}, width, poly::P)
+
+    poly = reflect(width, poly)
 
     for index in zero(Uint8):convert(Uint8, TABLE_SIZE-1)
         remainder::A = convert(A, index)
@@ -251,49 +233,82 @@ function make_tables{D<:U, A<:U, P<:U
                remainder >>>= 1
             end
         end
-        tables[1][(refin ? index : reflect(index)) + 1] = remainder
+        tables[1][index + 1] = remainder
     end
     for index in zero(Uint8):convert(Uint8, TABLE_SIZE-1)
-        remainder = tables[1][(refin ? index : reflect(index)) + 1]
-        for t in 2:n_tables
+        remainder = tables[1][index + 1]
+        for t in 2:length(tables)
             remainder = (remainder >>> INDEX_SIZE) $ tables[1][1 + (remainder & 0xff)]
-            tables[t][(refin ? index : reflect(index)) + 1] = remainder
+            tables[t][index + 1] = remainder
         end
     end
     tables
 end
 
-function extend{P<:U, A<:U}(poly::P, degree, refin, remainder::P, data, tables::Vector{Vector{A}})
+function make_tables_pad{D<:U, A<:U, P<:U
+                         }(tables::Vector{Vector{A}}, ::Type{D}, width, poly::P)
+
+    pad_p = pad(A, width)
+    poly = convert(A, poly) << pad_p
+    carry = one(A) << pad(A, 1)
+    pad_8 = pad(A, 8)
+
+    for index in zero(Uint8):convert(Uint8, TABLE_SIZE-1)
+        remainder::A = convert(A, index) << pad_8
+        for _ in 1:INDEX_SIZE
+            if remainder & carry == carry
+                remainder = (remainder << 1) $ poly
+            else
+               remainder <<= 1
+            end
+        end
+        tables[1][index + 1] = remainder
+    end
+    for index in zero(Uint8):convert(Uint8, TABLE_SIZE-1)
+        remainder = tables[1][index + 1]
+        for t in 2:length(tables)
+            remainder = (remainder << INDEX_SIZE) $ tables[1][1 + ((remainder >>> pad_8) & 0xff)]
+            tables[t][index + 1] = remainder
+        end
+    end
+    tables
+end
+
+function extend{P<:U, A<:U}(poly::P, width, refin, remainder::P, data, tables::Vector{Vector{A}})
 
     D = itype(data, Uint8)
     @assert largest(D, P, A) == A
 
-    pad = refin ? 0 : 8 * sizeof(A) - degree
-    poly = refin ? reflect(degree, poly) : poly
-    poly = convert(A, poly) << pad
-    remainder = refin ? reflect(degree, remainder) : remainder
-    remainder = convert(A, remainder) << pad
+    pad_p = refin ? 0 : pad(A, width)
+    poly = refin ? reflect(width, poly) : poly
+    poly = convert(A, poly) << pad_p
+    remainder = refin ? reflect(width, remainder) : remainder
+    remainder = convert(A, remainder) << pad_p
 
     if length(tables) == 0
         if refin
-            remainder = loop_no_tables_refin(D, poly, remainder, data)
+            remainder = loop_no_tables_ref(D, poly, remainder, data)
         else
-            remainder = loop_no_tables(D, poly, remainder, data)
+            remainder = loop_no_tables_pad(D, poly, remainder, data)
         end
     else
-        error("tables")
+        if refin
+            remainder = loop_tables_ref(D, poly, remainder, data, tables)
+        else
+            remainder = loop_tables_pad(D, poly, remainder, data, tables)
+        end
     end
     
-    remainder >>>= pad
-    remainder = refin ? reflect(degree, remainder) : remainder
+    remainder >>>= pad_p
+    remainder = refin ? reflect(width, remainder) : remainder
     # TODO - is this mask ever needed?
-#    mask::A = convert(A, (one(Uint128) << degree) - 1)
+#    mask::A = convert(A, (one(Uint128) << width) - 1)
 #    convert(P, remainder & mask)
     convert(P, remainder)
 end
 
-function loop_no_tables_refin{D<:U, A<:U
-                              }(::Type{D}, poly::A, remainder::A, data)
+function loop_no_tables_ref{D<:U, A<:U
+                            }(::Type{D}, poly::A, remainder::A, data)
     for word::D in data
         remainder::A = remainder $ convert(A, word)
         for _ in 1:8*sizeof(D)
@@ -307,12 +322,14 @@ function loop_no_tables_refin{D<:U, A<:U
     remainder
 end
 
-function loop_no_tables{D<:U, A<:U
-                        }(::Type{D}, poly::A, remainder::A, data)
-    shift = 8*sizeof(A) - 8*sizeof(D)
-    carry = one(A) << (8*sizeof(A) - 1)
+function loop_no_tables_pad{D<:U, A<:U
+                            }(::Type{D}, poly::A, remainder::A, data)
+
+    pad_d = pad(A, D)
+    carry = one(A) << pad(A, 1)
+
     for word::D in data
-        remainder::A = remainder $ (convert(A, word) << shift)
+        remainder::A = remainder $ (convert(A, word) << pad_d)
         for _ in 1:8*sizeof(D)
             if remainder & carry == carry
                 remainder = (remainder << 1) $ poly
@@ -324,8 +341,38 @@ function loop_no_tables{D<:U, A<:U
     remainder
 end
 
-function finalize_remainder(remainder, degree, refout, xorout)
-    remainder = refout ? reflect(degree, remainder) : remainder
+function loop_tables_ref{D<:U, A<:U
+                         }(::Type{D}, poly::A, remainder::A, data, tables::Vector{Vector{A}})
+    for word::D in data
+        tmp::A = remainder $ convert(A, word)
+        remainder = tmp >>> 8*sizeof(D)
+        # TODO - unroll statically
+        for t in 1:length(tables)
+            remainder $= tables[t][(tmp >>> (t-1)*8) & 0xff + 1]
+        end
+    end
+    remainder
+end
+
+function loop_tables_pad{D<:U, A<:U
+                         }(::Type{D}, poly::A, remainder::A, data, tables::Vector{Vector{A}})
+
+    pad_d = pad(A, D)
+    pad_8 = pad(A, 8)
+
+    for word::D in data
+        tmp::A = remainder $ (convert(A, word) << pad_d)
+        remainder = tmp << 8*sizeof(D)
+        # TODO - unroll statically
+        for t in 1:length(tables)
+            remainder $= tables[t][(tmp >>> (pad_8 - (t-1)*8)) & 0xff + 1]
+        end        
+    end
+    remainder
+end
+
+function finalize_remainder(remainder, width, refout, xorout)
+    remainder = refout ? reflect(width, remainder) : remainder
     remainder $ xorout
 end
 
@@ -335,7 +382,13 @@ function crc{P<:U}(spec::Spec{P}, data)
     finalize_remainder(extend(spec.poly, spec.width, spec.refin, spec.init, data, Vector{A}[]), spec.width, spec.refout, spec.xorout)
 end
 
-
+function crc{P<:U, D<:U}(spec::Spec{P}, ::Type{D})
+    A = fastest(P, D)
+    tables = make_tables(D, A, spec.width, spec.poly, spec.refin)
+    function crc(data)
+        finalize_remainder(extend(spec.poly, spec.width, spec.refin, spec.init, data, tables), spec.width, spec.refout, spec.xorout)
+    end
+end
 
 
 
