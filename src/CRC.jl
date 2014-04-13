@@ -13,26 +13,44 @@
 
 module CRC
 
-export to_uint, crc_no_table, make_table, crc_word_table,
-       crc_small_table, crc_large_table, Spec, crc, ReflectWords,
-       reflect, TEST, CRC_3_ROHC, CRC_4_ITU, CRC_5_EPC, CRC_5_ITU,
-       CRC_5_USB, CRC_6_CDMA2000_A, CRC_6_CDMA2000_B, CRC_6_DARC,
-       CRC_6_ITU, CRC_7, CRC_7_ROHC, CRC_8, CRC_8_CDMA2000,
-       CRC_8_DARC, CRC_8_DVB_S2, CRC_8_EBU, CRC_8_I_CODE, CRC_8_ITU,
-       CRC_8_MAXIM, CRC_8_ROHC, CRC_8_WCDMA, CRC_10, CRC_10_CDMA2000,
-       CRC_11, CRC_12_3GPP, CRC_12_CDMA2000, CRC_12_DECT, CRC_13_BBC,
-       CRC_14_DARC, CRC_15, CRC_15_MPT1327, CRC_16_ARC,
-       CRC_16_AUG_CCITT, CRC_16_BUYPASS, CRC_16_CCITT_FALSE,
-       CRC_16_CDMA2000, CRC_16_DDS_110, CRC_16_DECT_R, CRC_16_DECT_X,
-       CRC_16_DNP, CRC_16_EN_13757, CRC_16_GENIBUS, CRC_16_MAXIM,
-       CRC_16_RIELLO, CRC_16_TELEDISK, CRC_16_USB, CRC_16_CRC_A,
-       CRC_16_KERMIT, CRC_16_MODBUS, CRC_16_X_25, CRC_16_XMODEM,
-       CRC_24, CRC_24_FLEXRAY_A, CRC_24_FLEXRAY_B, CRC_31_PHILIPS,
-       CRC_32, CRC_32_BZIP2, CRC_32_C, CRC_32_D, CRC_32_MPEG_2,
-       CRC_32_POSIX, CRC_32_Q, CRC_32_JAMCRC, CRC_32_XFER, CRC_40_GSM,
-       CRC_64, CRC_64_WE, CRC_64_XZ, CRC_82_DARC
+export crc, make_tables, TEST, CRC_3_ROHC, CRC_4_ITU, CRC_5_EPC,
+       CRC_5_ITU, CRC_5_USB, CRC_6_CDMA2000_A, CRC_6_CDMA2000_B,
+       CRC_6_DARC, CRC_6_ITU, CRC_7, CRC_7_ROHC, CRC_8,
+       CRC_8_CDMA2000, CRC_8_DARC, CRC_8_DVB_S2, CRC_8_EBU,
+       CRC_8_I_CODE, CRC_8_ITU, CRC_8_MAXIM, CRC_8_ROHC, CRC_8_WCDMA,
+       CRC_10, CRC_10_CDMA2000, CRC_11, CRC_12_3GPP, CRC_12_CDMA2000,
+       CRC_12_DECT, CRC_13_BBC, CRC_14_DARC, CRC_15, CRC_15_MPT1327,
+       CRC_16_ARC, CRC_16_AUG_CCITT, CRC_16_BUYPASS,
+       CRC_16_CCITT_FALSE, CRC_16_CDMA2000, CRC_16_DDS_110,
+       CRC_16_DECT_R, CRC_16_DECT_X, CRC_16_DNP, CRC_16_EN_13757,
+       CRC_16_GENIBUS, CRC_16_MAXIM, CRC_16_RIELLO, CRC_16_TELEDISK,
+       CRC_16_USB, CRC_16_CRC_A, CRC_16_KERMIT, CRC_16_MODBUS,
+       CRC_16_X_25, CRC_16_XMODEM, CRC_24, CRC_24_FLEXRAY_A,
+       CRC_24_FLEXRAY_B, CRC_31_PHILIPS, CRC_32, CRC_32_BZIP2,
+       CRC_32_C, CRC_32_D, CRC_32_MPEG_2, CRC_32_POSIX, CRC_32_Q,
+       CRC_32_JAMCRC, CRC_32_XFER, CRC_40_GSM, CRC_64, CRC_64_WE,
+       CRC_64_XZ, CRC_82_DARC
 
-import Base: start, done, next
+#export to_uint, crc_no_table, make_table, crc_word_table,
+#       crc_small_table, crc_large_table, Spec, crc, ReflectWords,
+#       reflect, TEST, CRC_3_ROHC, CRC_4_ITU, CRC_5_EPC, CRC_5_ITU,
+#       CRC_5_USB, CRC_6_CDMA2000_A, CRC_6_CDMA2000_B, CRC_6_DARC,
+#       CRC_6_ITU, CRC_7, CRC_7_ROHC, CRC_8, CRC_8_CDMA2000,
+#       CRC_8_DARC, CRC_8_DVB_S2, CRC_8_EBU, CRC_8_I_CODE, CRC_8_ITU,
+#       CRC_8_MAXIM, CRC_8_ROHC, CRC_8_WCDMA, CRC_10, CRC_10_CDMA2000,
+#       CRC_11, CRC_12_3GPP, CRC_12_CDMA2000, CRC_12_DECT, CRC_13_BBC,
+#       CRC_14_DARC, CRC_15, CRC_15_MPT1327, CRC_16_ARC,
+#       CRC_16_AUG_CCITT, CRC_16_BUYPASS, CRC_16_CCITT_FALSE,
+#       CRC_16_CDMA2000, CRC_16_DDS_110, CRC_16_DECT_R, CRC_16_DECT_X,
+#       CRC_16_DNP, CRC_16_EN_13757, CRC_16_GENIBUS, CRC_16_MAXIM,
+#       CRC_16_RIELLO, CRC_16_TELEDISK, CRC_16_USB, CRC_16_CRC_A,
+#       CRC_16_KERMIT, CRC_16_MODBUS, CRC_16_X_25, CRC_16_XMODEM,
+#       CRC_24, CRC_24_FLEXRAY_A, CRC_24_FLEXRAY_B, CRC_31_PHILIPS,
+#       CRC_32, CRC_32_BZIP2, CRC_32_C, CRC_32_D, CRC_32_MPEG_2,
+#       CRC_32_POSIX, CRC_32_Q, CRC_32_JAMCRC, CRC_32_XFER, CRC_40_GSM,
+#       CRC_64, CRC_64_WE, CRC_64_XZ, CRC_82_DARC
+
+#import Base: start, done, next
 
 
 # types and bit sizes
@@ -41,476 +59,15 @@ import Base: start, done, next
 #       the type of the result
 #   A/width - accumulator / remainder and table value (all vars in inner loop)
 #             (for table-driven routines this is fixed by the table type)
-#   index_size - number of (most significant) bits from A used to index table
-#                (this must be an exact multiple / divisor of word_size)
 #   degree - number of (least significant) bits in P used to specific poly
 #            (plus an implicit msb)
+#   all lookup tables have an 8-bit (byte) index.
 
 typealias U Unsigned
 
-function to_uint(size_or_type)
-    if isa(size_or_type, Type) && issubtype(size_or_type, U) && isleaftype(size_or_type)
-        return size_or_type
-    elseif isa(size_or_type, Integer) && size_or_type > 0
-        if size_or_type <= 8
-            return Uint8
-        elseif size_or_type <= 16
-            return Uint16
-        elseif size_or_type <= 32
-            return Uint32
-        elseif size_or_type <= 64
-            return Uint64
-        elseif size_or_type <= 128
-            return Uint128
-        end
-    end
-    error("unexpected type / size: $size_or_type ($(typeof(size_or_type)))")
-end
 
-function largest(T, TS...)
-    big = to_uint(T)
-    for t in map(to_uint, TS)
-        if sizeof(t) > sizeof(big)
-            big = t
-        end
-    end
-    big
-end
 
-function fastest(T, TS...)
-    l = largest(T, TS...)
-    if l == Uint32 && Uint32 != Uint
-        Uint64  # round up for speed
-    else
-        l
-    end
-end
 
-function itype(iterable, default)
-    for i in iterable
-        return typeof(i)
-    end
-    return default
-end
-
-
-# common support for calculations
-
-function check_poly{A<:U, P<:U
-                    }(::Type{A}, degree, poly::P, init, refin, xorout)
-
-    @assert largest(A, degree) == A "accumulator $A too narrow for degree $degree"
-    @assert largest(P, degree) == P "polynomial $P too narrow for degree $degree"
-
-    # how many spaces to right of polynomial in accumulator while
-    # doing the division
-    width = 8 * sizeof(A)
-    pad = refin ? 0 : width - degree
-
-    # carry before shift on padded data
-    carry::A = refin ? 1 : one(A) << (width - 1)
-
-    # isolate the polynomial (except implicit msb) after padding removed
-    rem_mask::A = convert(A, (one(Uint128) << degree) - 1)
-
-    # init and poly both need converting and then padding or reflecting
-    init::A = convert(A, init & rem_mask) << pad
-    init = refin ? reflect(degree, init) : init
-    poly::A = convert(A, poly & rem_mask) << pad
-    poly = refin ? reflect(degree, poly) : poly
-
-    xorout = convert(P, xorout)
-    (poly, init, width, pad, carry, rem_mask, xorout)
-end
-
-function check_poly{D<:U, A<:U, P<:U
-                    }(::Type{D}, ::Type{A}, degree, poly::P, init, refin, xorout)
-
-    @assert largest(D, A) == A "accumulator too narrow for data"
-    poly, init, width, pad, carry, rem_mask, xorout = 
-        check_poly(A, degree, poly, init, refin, xorout)
-
-    # the shift when we load a data word into the remainder / accumulator
-    word_size = 8 * sizeof(D)
-    load = refin ? 0 : width - word_size
-
-    (poly, init, width, pad, carry, rem_mask, load, word_size, xorout)
-end
-
-function fix_remainder{P<:U
-                       }(::Type{P}, degree, remainder, rem_mask, pad, refin, refout, xorout::P)
-    remainder = convert(P, (remainder >>> pad) & rem_mask)
-    remainder = (refin $ refout) ? reflect(degree, remainder) : remainder
-    remainder $ xorout
-end
-
-function measure_table{A<:U}(table::Vector{A})
-    index_size = iround(log2(length(table)))
-    @assert 2 ^ index_size == length(table) "incorrect table size"
-    @assert index_size <= 8 * sizeof(A) "index wider than accumulator"
-    index_size
-end
-
-function check_data{D<:U}(::Type{D}, data)
-    @assert itype(data, D) == D "data not of correct size ($D / $(typeof(d))))"
-end
-
-
-# basic calculation without a table
-
-function crc_no_table{D<:U, A<:U, P<:U
-                      }(::Type{D}, ::Type{A}, degree, poly::P, data; 
-                        init=0, refin=false, refout=false, xorout=0)
-    check_data(D, data)
-    poly::A, init::A, width, pad, carry::A, rem_mask::A, load, word_size, xorout::P = 
-        check_poly(D, A, degree, poly, init, refin, xorout)
-    if refin
-        remainder = loop_no_table_ref(D, poly, init, data, word_size)
-    else
-        remainder = loop_no_table(D, poly, init, data, carry, word_size, load)
-    end
-    fix_remainder(P, degree, remainder, rem_mask, pad, refin, refout, xorout)
-end
-
-crc_no_table{D<:U, P<:U
-             }(degree, poly::P, data::Vector{D}; 
-               init=0, refin=false, refout=false, xorout=0) = 
-               crc_no_table(D, fastest(D, degree), degree, poly, data, 
-                            init=init, refin=refin, refout=refout, xorout=xorout)
-
-function loop_no_table_ref{D<:U, A<:U
-                           }(::Type{D}, poly::A, remainder::A, data, word_size)
-    for word::D in data
-        remainder::A = remainder $ convert(A, word)
-        for _ in 1:word_size
-            if remainder & one(A) == one(A)
-                remainder = (remainder >>>= 1) $ poly
-            else
-                remainder >>>= 1
-            end
-        end
-    end
-    remainder
-end
-
-function loop_no_table{D<:U, A<:U
-                       }(::Type{D}, poly::A, remainder::A, data, carry::A, word_size, load)
-    for word::D in data
-        remainder::A = remainder $ (convert(A, word) << load)
-        for _ in 1:word_size
-            if remainder & carry == carry
-                remainder = (remainder << 1) $ poly
-            else
-                remainder <<= 1
-            end
-        end
-    end
-    remainder
-end
-
-
-# generate a lookup table of the requested size
-
-function make_table{A<:U, P<:U
-                    }(::Type{A}, degree, poly::P, index_size;
-                      refin=false)
-
-    @assert index_size < 33 "table too large"  # even this is huge
-    @assert largest(A, index_size) == A "accumulator too narrow for index"
-
-    poly::A, init::A, width, pad, carry::A, rem_mask::A, xorout = 
-        check_poly(A, degree, poly, 0, false, 0)  # reflect below
-    index_shift = width - index_size
-    table_size = 2 ^ index_size
-    table = Array(A, table_size)
-
-    # TODO - reverse logic as refin case simpler and faster
-    for index in zero(Uint64):convert(Uint64, table_size-1)
-        remainder::A = convert(A, index) << index_shift
-        for _ in 1:index_size
-            if remainder & carry == carry
-                remainder = (remainder << 1) $ poly
-            else
-                remainder <<= 1
-            end
-        end
-        if refin
-            table[reflect(index_size, index)+1] = reflect(remainder)
-        else
-            table[index+1] = remainder
-        end
-    end
-    table
-end
-
-
-# use a table whose index matches the size of the input data words.
-
-function crc_word_table{D<:U, A<:U, P<:U
-                        }(::Type{D}, degree, poly::P, data, table::Vector{A}; 
-                          init=0, refin=false, refout=false, xorout=0)
-    check_data(D, data)
-    poly::A, init::A, width, pad, carry::A, rem_mask::A, load, word_size, xorout::P = 
-        check_poly(D, A, degree, poly, init, refin, xorout)
-    index_size = measure_table(table)
-    @assert word_size == index_size "incorrect index size (not word)"
-    if refin
-        remainder = loop_word_ref(D, init, data, table, word_size)
-    else
-        remainder = loop_word(D, init, data, table, load, word_size)
-    end
-    fix_remainder(P, degree, remainder, rem_mask, pad, refin, refout, xorout)
-end
-
-crc_word_table{D<:U, A<:U, P<:U
-               }(degree, poly::P, data::Vector{D}, table::Vector{A};
-                 init=0, refin=false, refout=false, xorout=0) = 
-                 crc_word_table(D, degree, poly, data, table, 
-                                init=init, refin=refin, refout=refout, xorout=xorout)
-
-#immutable Bytes
-#    a::Uint8
-#    b::Uint8
-#    c::Uint8
-#    d::Uint8
-#end
-#
-## horribly slow
-#function loop_word_ref(::Type{Uint8}, remainder::Uint64, data::Vector{Uint8}, table::Vector{Uint64}, word_size)
-#    println("zoom")
-#    r::Uint64 = remainder
-#    b = reinterpret(Bytes, r)
-#    for i in 1:length(data)
-#        @inbounds word::Uint8 = data[i]
-#        word $= b.a
-#        r = (r >>> 8) $ table[1 + word]
-#        b = reinterpret(Bytes, r)
-#    end
-#    return r
-#end
-
-## slower
-#function loop_word_ref(::Type{Uint8}, remainder::Uint64, data::Vector{Uint8}, table::Vector{Uint64}, word_size)
-#    r = Array(Uint64, 1)
-#    @inbounds r[1] = remainder
-#    b = reinterpret(Uint8, r)
-#    for i in 1:length(data)
-#        @inbounds word::Uint8 = data[i]
-#        @inbounds word $= b[1]
-#        @inbounds r[1] = (r[1] >>> 8) $ table[1 + word]  # @inbounds no help here
-#    end
-#    r[1]
-#end
-
-# this apoears to be very slightly (~15%) faster
-# curiously, both fixes (array indexing and explicit 8 bits) seem to be needed
-function loop_word_ref{A<:U
-                       }(::Type{Uint8}, remainder::A, data::Vector{Uint8}, table::Vector{A}, word_size)
-    for i in 1:length(data)
-        @inbounds word::Uint8 = data[i]
-        word $= convert(Uint8, remainder)
-        remainder = (remainder >>> 8) $ table[1 + word]  # @inbounds no help here
-    end
-    remainder
-end
-
-function loop_word_ref{D<:U, A<:U
-                       }(::Type{D}, remainder::A, data, table::Vector{A}, word_size)
-    for word::D in data
-        word $= convert(D, remainder)
-        remainder = (remainder >>> word_size) $ table[1 + word]
-    end
-    remainder
-end
-
-function loop_word{D<:U, A<:U
-                   }(::Type{D}, remainder::A, data, table::Vector{A}, load, word_size)
-    for word::D in data
-        word $= convert(D, remainder >>> load)
-        remainder = (remainder << word_size) $ table[1 + word]
-    end
-    remainder
-end
-
-
-# use a table whose index is smaller than the size of the input data words
-# (for efficiency it must be an exact divisor).
-
-function crc_small_table{D<:U, A<:U, P<:U
-                         }(::Type{D}, degree, poly::P, data, table::Vector{A};
-                           init=0, refin=false, refout=false, xorout=0)
-
-    check_data(D, data)
-    poly::A, init::A, width, pad, carry::A, rem_mask::A, load, word_size, xorout::P = 
-        check_poly(D, A, degree, poly, init, refin, xorout)
-    index_size = measure_table(table)
-    @assert word_size >= index_size "incorrect index size (not small)"
-    @assert word_size % index_size == 0 "incorrect index size (not divisor of word size)"
-    index_shift = refin ? 0 : width - index_size
-    index_mask::A = convert(A, (one(Uint128) << index_size) - 1) << index_shift
-    n_shifts = div(word_size, index_size)
-
-    if refin
-        remainder = loop_small_table_ref(D, init, data, table, n_shifts,
-                                         index_mask, index_size)
-    else
-        remainder = loop_small_table(D, init, data, table, load, n_shifts,
-                                     index_mask, index_size, index_shift)
-    end
-    fix_remainder(P, degree, remainder, rem_mask, pad, refin, refout, xorout)
-end
-
-crc_small_table{D<:U, A<:U, P<:U
-                }(degree, poly::P, data::Vector{D}, table::Vector{A}; 
-                  init=0, refin=false, refout=false, xorout=0) = 
-                  crc_small_table(D, degree, poly, data, table, 
-                                  init=init, refin=refin, refout=refout, xorout=xorout)
-
-function loop_small_table_ref{D<:U, A<:U
-                              }(::Type{D}, remainder::A, data, table::Vector{A},
-                                n_shifts, index_mask, index_size)
-    for word::D in data
-        # TODO - can this be xored just once at the start?
-        tmp::A = convert(A, word)
-        for _ in 1:n_shifts
-            remainder::A = remainder $ (tmp & index_mask)
-            remainder = (remainder >>> index_size) $ table[1 + (remainder & index_mask)]
-            tmp >>>= index_size
-        end
-    end
-    remainder
-end
-
-function loop_small_table{D<:U, A<:U
-                          }(::Type{D}, remainder::A, data, table::Vector{A}, 
-                            load, n_shifts, index_mask, index_size, index_shift)
-    for word::D in data
-        # TODO - can this be xored just once at the start?
-        tmp::A = convert(A, word) << load
-        for _ in 1:n_shifts
-            remainder::A = remainder $ (tmp & index_mask)
-            remainder = (remainder << index_size) $ table[1 + (remainder >>> index_shift)]
-            tmp <<= index_size
-        end
-    end
-    remainder
-end
-
-
-# use a table whose index is larger than the size of the input data
-# words (for efficiency it must be an exact multiple).
-
-function crc_large_table{D<:U, A<:U, P<:U
-                         }(::Type{D}, degree, poly::P, data, table::Vector{A};
-                           init=0, refin=false, refout=false, xorout=0)
-
-    check_data(D, data)
-    poly::A, init::A, width, pad, carry::A, rem_mask::A, load, word_size, xorout::P = 
-        check_poly(D, A, degree, poly, init, refin, xorout)
-    index_size = measure_table(table)
-    @assert word_size <= index_size "incorrect index size (not large)"
-    @assert index_size % word_size == 0 "incorrect index size (not multiple of word size)"
-    index_shift = refin ? 0 : width - index_size
-    index_mask::A = convert(A, (one(Uint128) << index_size) - 1) << index_shift
-    n_shifts = div(index_size, word_size)
-
-    if refin
-        remainder = loop_large_table_ref(D, init, data, table, word_size,
-                                         n_shifts, index_size, index_mask)
-    else
-        remainder = loop_large_table(D, init, data, table, load, word_size,
-                                     n_shifts, index_size, index_shift)
-    end
-    fix_remainder(P, degree, remainder, rem_mask, pad, refin, refout, xorout)
-end
-
-crc_large_table{D<:U, A<:U, P<:U
-                }(degree, poly::P, data::Vector{D}, table::Vector{A}; 
-                  init=0, refin=false, refout=false, xorout=0) = 
-                  crc_large_table(D, degree, poly, data, table, 
-                                  init=init, refin=refin, refout=refout, xorout=xorout)
-
-function loop_large_table_ref{D<:U, A<:U
-                              }(::Type{D}, remainder::A, data, table::Vector{A},
-                                word_size, n_shifts, index_size, index_mask)
-    iter = start(data)
-    correct = 0  # correction for incomplete data
-    while !done(data, iter)
-        for i in 1:n_shifts
-            if !done(data, iter)
-                word::D, iter = next(data, iter)
-                shift = (i-1) * word_size
-                remainder = remainder $ (convert(A, word) << shift)
-            else
-                # incomplete data; user smaller index and consume less
-                index_mask >>>= word_size
-                index_size -= word_size
-                correct += word_size
-            end
-        end
-        remainder = (remainder >>> index_size) $ table[1 + ((remainder & index_mask) << correct)]
-    end
-    remainder
-end
-
-function loop_large_table{D<:U, A<:U
-                          }(::Type{D}, remainder::A, data, table::Vector{A},
-                            load, word_size, n_shifts, index_size, index_shift)
-    iter = start(data)
-    while !done(data, iter)
-        for i in 1:n_shifts
-            if !done(data, iter)
-                word::D, iter = next(data, iter)
-                shift = load - (i-1) * word_size
-                remainder = remainder $ (convert(A, word) << shift)
-            else
-                # incomplete data; use smaller index and consume less
-                index_size -= word_size
-                index_shift += word_size
-            end
-        end
-        remainder = (remainder << index_size) $ table[1 + (remainder >>> index_shift)]
-    end
-    remainder
-end
-
-
-# http://stackoverflow.com/questions/2602823/in-c-c-whats-the-simplest-way-to-reverse-the-order-of-bits-in-a-byte
-function reflect_bits(n::Uint8)
-    n = (n & 0xf0) >>> 4 | (n & 0x0f) << 4;
-    n = (n & 0xcc) >>> 2 | (n & 0x33) << 2;
-    (n & 0xaa) >>> 1 | (n & 0x55) << 1;
-end
-
-REFLECT_8 = Uint8[reflect_bits(i) for i in 0x00:0xff]
-
-reflect(u::Uint8) = REFLECT_8[u+1]
-
-for (T,S) in ((Uint16, Uint8), (Uint32, Uint16), (Uint64, Uint32), (Uint128, Uint64))
-    n = 8 * sizeof(S)
-    mask::S = -one(S)
-    @eval reflect(u::$T) = (convert($T, reflect(convert($S, u & $mask))) << $n) | reflect(convert($S, (u >>> $n) & $mask))
-end
-
-function reflect{T<:U}(size, u::T)
-    width = 8 * sizeof(T)
-    @assert size <= width "cannot reflect a value larger than the representation"
-    u = reflect(u) >>> (width - size)
-end
-
-# automatically reflect individual words on iterations
-
-immutable ReflectWords{T}
-    inner::T
-end
-
-start{T}(r::ReflectWords{T}) = start(r.inner)
-done{T}(r::ReflectWords{T}, state) = done(r.inner, state)
-
-function next{T}(r::ReflectWords{T}, state)
-    i, state = next(r.inner, state)
-    reflect(i), state
-end
 
 
 TEST = b"123456789"
@@ -606,43 +163,535 @@ CRC_64_XZ =          Spec(0x42f0e1eba9ea3693, 0xffffffffffffffff, true,  true,  
 CRC_82_DARC =        Spec(82, 0x0308c0111011401440411, 0x000000000000000000000, true,  true,   0x000000000000000000000, 0x09ea83f625023801fd612)
 
 
-# table inside closure - allows for re-use of table
+# http://stackoverflow.com/questions/2602823/in-c-c-whats-the-simplest-way-to-reverse-the-order-of-bits-in-a-byte
+function reflect_bits(n::Uint8)
+    n = (n & 0xf0) >>> 4 | (n & 0x0f) << 4;
+    n = (n & 0xcc) >>> 2 | (n & 0x33) << 2;
+    (n & 0xaa) >>> 1 | (n & 0x55) << 1;
+end
 
-function crc{D<:U, A<:U, P<:U}(spec::Spec{P}, ::Type{D}, ::Type{A}; 
-                               table=true, index_size=8)
-    if table
-        t = make_table(A, spec.width, spec.poly, index_size, refin=spec.refin)
-        word_size = 8 * sizeof(D)
-        if word_size == index_size
-            data -> crc_word_table(D, spec.width, spec.poly, data, t,
-                                   init=spec.init, refin=spec.refin, refout=spec.refout, xorout=spec.xorout)
-        elseif word_size > index_size
-            data -> crc_small_table(D, spec.width, spec.poly, data, t, 
-                                    init=spec.init, refin=spec.refin, refout=spec.refout, xorout=spec.xorout)
-        else
-            data -> crc_large_table(D, spec.width, spec.poly, data, t,
-                                    init=spec.init, refin=spec.refin, refout=spec.refout, xorout=spec.xorout)
+REFLECT_8 = Uint8[reflect_bits(i) for i in 0x00:0xff]
+
+reflect(u::Uint8) = REFLECT_8[u+1]
+
+for (T,S) in ((Uint16, Uint8), (Uint32, Uint16), (Uint64, Uint32), (Uint128, Uint64))
+    n = 8 * sizeof(S)
+    mask::S = -one(S)
+    @eval reflect(u::$T) = (convert($T, reflect(convert($S, u & $mask))) << $n) | reflect(convert($S, (u >>> $n) & $mask))
+end
+
+function reflect{T<:U}(size, u::T)
+    width = 8 * sizeof(T)
+    @assert size <= width "cannot reflect a value larger than the representation"
+    reflect(u) >>> (width - size)
+end
+
+function itype(iterable, default)
+    for i in iterable
+        return typeof(i)
+    end
+    return default
+end
+
+function to_uint(size_or_type)
+    if isa(size_or_type, Type) && issubtype(size_or_type, U) && isleaftype(size_or_type)
+        return size_or_type
+    elseif isa(size_or_type, Integer) && size_or_type > 0
+        if size_or_type <= 8
+            return Uint8
+        elseif size_or_type <= 16
+            return Uint16
+        elseif size_or_type <= 32
+            return Uint32
+        elseif size_or_type <= 64
+            return Uint64
+        elseif size_or_type <= 128
+            return Uint128
         end
+    end
+    error("unexpected type / size: $size_or_type ($(typeof(size_or_type)))")
+end
+
+function largest(T, TS...)
+    big = to_uint(T)
+    for t in map(to_uint, TS)
+        if sizeof(t) > sizeof(big)
+            big = t
+        end
+    end
+    big
+end
+
+function fastest(T, TS...)
+    l = largest(T, TS...)
+    if l == Uint32 && Uint32 != Uint
+        Uint64  # round up for speed
     else
-        data -> crc_no_table(D, A, spec.width, spec.poly, data,
-                             init=spec.init, refin=spec.refin, refout=spec.refout, xorout=spec.xorout)
+        l
     end
 end
 
-crc{D<:U, P<:U
-    }(spec::Spec{P}, ::Type{D}; table=true, index_size=8) =
-        crc(spec, D, fastest(D, P, index_size))
+INDEX_SIZE = 8
+TABLE_SIZE = 256
+
+function make_tables{D<:U, A<:U, P<:U
+                     }(::Type{D}, ::Type{A}, degree, poly::P, refin)
+
+    word_size = 8 * sizeof(D)
+    n_tables = word_size / INDEX_SIZE
+    tables = Vector{A}[Array(A, TABLE_SIZE) for _ in 1:n_tables]
+    poly = reflect(degree, poly)
+
+    for index in zero(Uint8):convert(Uint8, TABLE_SIZE-1)
+        remainder::A = convert(A, index)
+        for _ in 1:INDEX_SIZE
+            if remainder & one(A) == one(A)
+                remainder = (remainder >>> 1) $ poly
+            else
+               remainder >>>= 1
+            end
+        end
+        tables[1][(refin ? index : reflect(index)) + 1] = remainder
+    end
+    for index in zero(Uint8):convert(Uint8, TABLE_SIZE-1)
+        remainder = tables[1][(refin ? index : reflect(index)) + 1]
+        for t in 2:n_tables
+            remainder = (remainder >>> INDEX_SIZE) $ tables[1][1 + (remainder & 0xff)]
+            tables[t][(refin ? index : reflect(index)) + 1] = remainder
+        end
+    end
+    tables
+end
+
+function extend{P<:U, A<:U}(poly::P, degree, refin, remainder::P, data, tables::Vector{Vector{A}})
+
+    D = itype(data, Uint8)
+    @assert largest(D, P, A) == A
+
+    pad = refin ? 0 : 8 * sizeof(A) - degree
+    poly = refin ? reflect(degree, poly) : poly
+    poly = convert(A, poly) << pad
+    remainder = refin ? reflect(degree, remainder) : remainder
+    remainder = convert(A, remainder) << pad
+
+    if length(tables) == 0
+        if refin
+            remainder = loop_no_tables_refin(D, poly, remainder, data)
+        else
+            remainder = loop_no_tables(D, poly, remainder, data)
+        end
+    else
+        error("tables")
+    end
+    
+    remainder >>>= pad
+    remainder = refin ? reflect(degree, remainder) : remainder
+    # TODO - is this mask ever needed?
+#    mask::A = convert(A, (one(Uint128) << degree) - 1)
+#    convert(P, remainder & mask)
+    convert(P, remainder)
+end
+
+function loop_no_tables_refin{D<:U, A<:U
+                              }(::Type{D}, poly::A, remainder::A, data)
+    for word::D in data
+        remainder::A = remainder $ convert(A, word)
+        for _ in 1:8*sizeof(D)
+            if remainder & one(A) == one(A)
+                remainder = (remainder >>> 1) $ poly
+            else
+                remainder >>>= 1
+            end
+        end
+    end
+    remainder
+end
+
+function loop_no_tables{D<:U, A<:U
+                        }(::Type{D}, poly::A, remainder::A, data)
+    shift = 8*sizeof(A) - 8*sizeof(D)
+    carry = one(A) << (8*sizeof(A) - 1)
+    for word::D in data
+        remainder::A = remainder $ (convert(A, word) << shift)
+        for _ in 1:8*sizeof(D)
+            if remainder & carry == carry
+                remainder = (remainder << 1) $ poly
+            else
+                remainder <<= 1
+            end
+        end
+    end
+    remainder
+end
+
+function finalize_remainder(remainder, degree, refout, xorout)
+    remainder = refout ? reflect(degree, remainder) : remainder
+    remainder $ xorout
+end
 
 
-# single shot (table not cached)
+function crc{P<:U}(spec::Spec{P}, data)
+    A = fastest(P, itype(data, Uint8))
+    finalize_remainder(extend(spec.poly, spec.width, spec.refin, spec.init, data, Vector{A}[]), spec.width, spec.refout, spec.xorout)
+end
 
-crc{D<:U, A<:U, P<:U}(spec::Spec{P}, data::Vector{D}, ::Type{A};
-                      table=true, index_size=8) =
-    crc(spec, D, A, table=table, index_size=index_size)(data)
 
-crc{D<:U, P<:U}(spec::Spec{P}, data::Vector{D};
-                table=true, index_size=8) =
-                    crc(spec, data, fastest(D, P, index_size), 
-                        table=table, index_size=index_size)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#function to_uint(size_or_type)
+#    if isa(size_or_type, Type) && issubtype(size_or_type, U) && isleaftype(siz#e_or_type)
+#        return size_or_type
+#    elseif isa(size_or_type, Integer) && size_or_type > 0
+#        if size_or_type <= 8
+#            return Uint8
+#        elseif size_or_type <= 16
+#            return Uint16
+#        elseif size_or_type <= 32
+#            return Uint32
+#        elseif size_or_type <= 64
+#            return Uint64
+#        elseif size_or_type <= 128
+#            return Uint128
+#        end
+#    end
+#    error("unexpected type / size: $size_or_type ($(typeof(size_or_type)))")
+#end
+#
+#function largest(T, TS...)
+#    big = to_uint(T)
+#    for t in map(to_uint, TS)
+#        if sizeof(t) > sizeof(big)
+#            big = t
+#        end
+#    end
+#    big
+#end
+#
+#function fastest(T, TS...)
+#    l = largest(T, TS...)
+#    if l == Uint32 && Uint32 != Uint
+#        Uint64  # round up for speed
+#    else
+#        l
+#    end
+#end
+#
+#function itype(iterable, default)
+#    for i in iterable
+#        return typeof(i)
+#    end
+#    return default
+#end
+#
+#
+## common support for calculations
+#
+#function check_poly{A<:U, P<:U
+#                    }(::Type{A}, degree, poly::P, init, refin, xorout)
+#
+#    @assert largest(A, degree) == A "accumulator $A too narrow for degree $deg#ree"
+#    @assert largest(P, degree) == P "polynomial $P too narrow for degree $degr#ee"
+#
+#    # how many spaces to right of polynomial in accumulator while
+#    # doing the division
+#    width = 8 * sizeof(A)
+#    pad = refin ? 0 : width - degree
+#
+#    # carry before shift on padded data
+#    carry::A = refin ? 1 : one(A) << (width - 1)
+#
+#    # isolate the polynomial (except implicit msb) after padding removed
+#    rem_mask::A = convert(A, (one(Uint128) << degree) - 1)
+#
+#    # init and poly both need converting and then padding or reflecting
+#    init::A = convert(A, init & rem_mask) << pad
+#    init = refin ? reflect(degree, init) : init
+#    poly::A = convert(A, poly & rem_mask) << pad
+#    poly = refin ? reflect(degree, poly) : poly
+#
+#    xorout = convert(P, xorout)
+#    (poly, init, width, pad, carry, rem_mask, xorout)
+#end
+#
+#function check_poly{D<:U, A<:U, P<:U
+#                    }(::Type{D}, ::Type{A}, degree, poly::P, init, refin, xoro#ut)
+#
+#    @assert largest(D, A) == A "accumulator too narrow for data"
+#    poly, init, width, pad, carry, rem_mask, xorout = 
+#        check_poly(A, degree, poly, init, refin, xorout)
+#
+#    # the shift when we load a data word into the remainder / accumulator
+#    word_size = 8 * sizeof(D)
+#    load = refin ? 0 : width - word_size
+#
+#    (poly, init, width, pad, carry, rem_mask, load, word_size, xorout)
+#end
+#
+#function fix_remainder{P<:U
+#                       }(::Type{P}, degree, remainder, rem_mask, pad, refin, r#efout, xorout::P)
+#    remainder = convert(P, (remainder >>> pad) & rem_mask)
+#    remainder = (refin $ refout) ? reflect(degree, remainder) : remainder
+#    remainder $ xorout
+#end
+#
+#function check_data{D<:U}(::Type{D}, data)
+#    @assert itype(data, D) == D "data not of correct size ($D / $(typeof(d))))#"
+#end
+#
+#
+## basic calculation without a table
+#
+#function crc_no_table{D<:U, A<:U, P<:U
+#                      }(::Type{D}, ::Type{A}, degree, poly::P, data; 
+#                        init=0, refin=false, refout=false, xorout=0)
+#    check_data(D, data)
+#    poly::A, init::A, width, pad, carry::A, rem_mask::A, load, word_size, xoro#ut::P = 
+#        check_poly(D, A, degree, poly, init, refin, xorout)
+#    if refin
+#        remainder = loop_no_table_ref(D, poly, init, data, word_size)
+#    else
+#        remainder = loop_no_table(D, poly, init, data, carry, word_size, load)
+#    end
+#    fix_remainder(P, degree, remainder, rem_mask, pad, refin, refout, xorout)
+#end
+#
+#crc_no_table{D<:U, P<:U
+#             }(degree, poly::P, data::Vector{D}; 
+#               init=0, refin=false, refout=false, xorout=0) = 
+#               crc_no_table(D, fastest(D, degree), degree, poly, data, 
+#                            init=init, refin=refin, refout=refout, xorout=xoro#ut)
+#
+#function loop_no_table_ref{D<:U, A<:U
+#                           }(::Type{D}, poly::A, remainder::A, data, word_size#)
+#    for word::D in data
+#        remainder::A = remainder $ convert(A, word)
+#        for _ in 1:word_size
+#            if remainder & one(A) == one(A)
+#                remainder = (remainder >>> 1) $ poly
+#            else
+#                remainder >>>= 1
+#            end
+#        end
+#    end
+#    remainder
+#end
+#
+#function loop_no_table{D<:U, A<:U
+#                       }(::Type{D}, poly::A, remainder::A, data, carry::A, wor#d_size, load)
+#    for word::D in data
+#        remainder::A = remainder $ (convert(A, word) << load)
+#        for _ in 1:word_size
+#            if remainder & carry == carry
+#                remainder = (remainder << 1) $ poly
+#            else
+#                remainder <<= 1
+#            end
+#        end
+#    end
+#    remainder
+#end
+#
+#
+## generate lookup tables.  first is the "real" table; subsequent are 
+## repeated evaluation against zero data to shift by a byte (allowing 
+## multiple bytes to be merged for large words)
+#
+#INDEX_SIZE = 8
+#TABLE_SIZE = 256
+#
+#function make_tables{D<:U, A<:U, P<:U
+#                     }(::Type{D}, ::Type{A}, degree, poly::P;
+#                      refin=false)
+#
+#    @assert largest(A, Uint8) == A "accumulator too narrow for index"
+#
+#    word_size = 8 * sizeof(D)
+#    n_tables = word_size / INDEX_SIZE
+#    table = Vector{A}[Array(A, TABLE_SIZE) for _ in 1:n_tables]
+#    poly = reflect(degree, poly)
+#
+#    for index in zero(Uint8):convert(Uint8, TABLE_SIZE-1)
+#        remainder::A = convert(A, index)
+#        for _ in 1:INDEX_SIZE
+#            if remainder & one(A) == one(A)
+#                remainder = (remainder >>> 1) $ poly
+#            else
+#               remainder >>>= 1
+#            end
+#        end
+#        if refin
+#            table[1][index+1] = remainder
+#        else
+#            table[1][reflect(index)+1] = reflect(remainder)
+#        end
+#        for t in 2:n_tables
+#            remainder = (remainder >>> INDEX_SIZE) $ table[1][1 + (remainder &# 0xff)])
+#            if refin
+#                table[t][index+1] = remainder
+#            else
+#                table[t][reflect(index)+1] = reflect(remainder)
+#            end
+#        end
+#    end
+#    tables
+#end
+#
+#
+## use a table whose index matches the size of the input data words.
+#
+#function crc_word_table{D<:U, A<:U, P<:U
+#                        }(::Type{D}, degree, poly::P, data, table::Vector{A}; 
+#                          init=0, refin=false, refout=false, xorout=0)
+#    check_data(D, data)
+#    poly::A, init::A, width, pad, carry::A, rem_mask::A, load, word_size, xoro#ut::P = 
+#        check_poly(D, A, degree, poly, init, refin, xorout)
+#    index_size = measure_table(table)
+#    @assert word_size == index_size "incorrect index size (not word)"
+#    if refin
+#        remainder = loop_word_ref(D, init, data, table, word_size)
+#    else
+#        remainder = loop_word(D, init, data, table, load, word_size)
+#    end
+#    fix_remainder(P, degree, remainder, rem_mask, pad, refin, refout, xorout)
+#end
+#
+#crc_word_table{D<:U, A<:U, P<:U
+#               }(degree, poly::P, data::Vector{D}, table::Vector{A};
+#                 init=0, refin=false, refout=false, xorout=0) = 
+#                 crc_word_table(D, degree, poly, data, table, 
+#                                init=init, refin=refin, refout=refout, xorout=#xorout)
+#
+#function loop_word_ref{D<:U, A<:U
+#                       }(::Type{D}, remainder::A, data, table::Vector{A}, word#_size)
+#    for word::D in data
+#        word $= convert(D, remainder)
+#        remainder = (remainder >>> word_size) $ table[1 + word]
+#    end
+#    remainder
+#end
+#
+#function loop_word{D<:U, A<:U
+#                   }(::Type{D}, remainder::A, data, table::Vector{A}, load, wo#rd_size)
+#    for word::D in data
+#        word $= convert(D, remainder >>> load)
+#        remainder = (remainder << word_size) $ table[1 + word]
+#    end
+#    remainder
+#end
+#
+#
+#
+#
+## http://stackoverflow.com/questions/2602823/in-c-c-whats-the-simplest-way-to-#reverse-the-order-of-bits-in-a-byte
+#function reflect_bits(n::Uint8)
+#    n = (n & 0xf0) >>> 4 | (n & 0x0f) << 4;
+#    n = (n & 0xcc) >>> 2 | (n & 0x33) << 2;
+#    (n & 0xaa) >>> 1 | (n & 0x55) << 1;
+#end
+#
+#REFLECT_8 = Uint8[reflect_bits(i) for i in 0x00:0xff]
+#
+#reflect(u::Uint8) = REFLECT_8[u+1]
+#
+#for (T,S) in ((Uint16, Uint8), (Uint32, Uint16), (Uint64, Uint32), (Uint128, U#int64))
+#    n = 8 * sizeof(S)
+#    mask::S = -one(S)
+#    @eval reflect(u::$T) = (convert($T, reflect(convert($S, u & $mask))) << $n#) | reflect(convert($S, (u >>> $n) & $mask))
+#end
+#
+#function reflect{T<:U}(size, u::T)
+#    width = 8 * sizeof(T)
+#    @assert size <= width "cannot reflect a value larger than the representati#on"
+#    u = reflect(u) >>> (width - size)
+#end
+#
+## automatically reflect individual words on iterations
+#
+#immutable ReflectWords{T}
+#    inner::T
+#end
+#
+#start{T}(r::ReflectWords{T}) = start(r.inner)
+#done{T}(r::ReflectWords{T}, state) = done(r.inner, state)
+#
+#function next{T}(r::ReflectWords{T}, state)
+#    i, state = next(r.inner, state)
+#    reflect(i), state
+#end
+#
+#
+#
+#
+#
+#
+## table inside closure - allows for re-use of table
+#
+#function crc{D<:U, A<:U, P<:U}(spec::Spec{P}, ::Type{D}, ::Type{A}; 
+#                               table=true, index_size=8)
+#    if table
+#        t = make_table(A, spec.awidth, spec.poly, index_size, refin=spec.refin)
+#        word_size = 8 * sizeof(D)
+#        if word_size == index_size
+#            data -> crc_word_table(D, spec.width, spec.poly, data, t,
+#                                   init=spec.init, refin=spec.refin, refout=sp#ec.refout, xorout=spec.xorout)
+#        elseif word_size > index_size
+#            data -> crc_small_table(D, spec.width, spec.poly, data, t, 
+#                                    init=spec.init, refin=spec.refin, refout=s#pec.refout, xorout=spec.xorout)
+#        else
+#            data -> crc_large_table(D, spec.width, spec.poly, data, t,
+#                                    init=spec.init, refin=spec.refin, refout=s#pec.refout, xorout=spec.xorout)
+#        end
+#    else
+#        data -> crc_no_table(D, A, spec.width, spec.poly, data,
+#                             init=spec.init, refin=spec.refin, refout=spec.ref#out, xorout=spec.xorout)
+#    end
+#end
+#
+#crc{D<:U, P<:U
+#    }(spec::Spec{P}, ::Type{D}; table=true, index_size=8) =
+#        crc(spec, D, fastest(D, P, index_size))
+#
+#
+## single shot (table not cached)
+#
+#crc{D<:U, A<:U, P<:U}(spec::Spec{P}, data::Vector{D}, ::Type{A};
+#                      table=true, index_size=8) =
+#    crc(spec, D, A, table=table, index_size=index_size)(data)
+#
+#crc{D<:U, P<:U}(spec::Spec{P}, data::Vector{D};
+#                table=true, index_size=8) =
+#                    crc(spec, data, fastest(D, P, index_size), 
+#                        table=table, index_size=index_size)
+
 
 end
