@@ -21,6 +21,20 @@ all = [CRC_3_ROHC, CRC_4_ITU, CRC_5_EPC, CRC_5_ITU,
        CRC_32_POSIX, CRC_32_Q, CRC_32_JAMCRC, CRC_32_XFER, CRC_40_GSM,
        CRC_64, CRC_64_WE, CRC_64_XZ, CRC_82_DARC]
 
+function test_crc(spec)
+    print(spec)
+    @test crc(spec, TEST) == spec.test
+    print(".")
+    result = crc(spec, Uint8, false)(TEST)
+    println("result $(hex(result))")
+    @test result == spec.test
+    print(".")
+    result= crc(spec, Uint8, true)(TEST)
+    println("result $(hex(result))")
+    @test result == spec.test
+    println("ok")
+end
+
 function test_crc_no_table()
     print("no table")
     for spec in all
@@ -50,10 +64,10 @@ function test_tables()
     println("ok")
 end
 
-function test_crc_table()
-    print("table")
+function test_crc_table(flag)
+    print("table $flag")
     for spec in all
-        c = crc(spec, Uint8)
+        c = crc(spec, Uint8, flag)
         result = c(TEST)
         if result != spec.test
             println("$spec $(hex(result)) $(hex(spec.test))")
@@ -65,9 +79,19 @@ function test_crc_table()
 end
 
 function tests()
+    test_crc(CRC_3_ROHC)
+    test_crc(CRC_7_ROHC)
+    test_crc(CRC_4_ITU)
+    test_crc(CRC_32)
+    test_crc(CRC_7)
+    test_crc(CRC_8)
+    test_crc(CRC_10)
+    test_crc(CRC_8_CDMA2000)
+    test_crc(CRC_5_EPC)
     test_crc_no_table()
     test_tables()
-    test_crc_table()
+    test_crc_table(false)
+    test_crc_table(true)
 end
 
 tests()
