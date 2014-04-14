@@ -26,12 +26,16 @@ function test_crc(spec)
     @test crc(spec, TEST) == spec.test
     print(".")
     result = crc(spec, Uint8, false)(TEST)
-    println("result $(hex(result))")
-    @test result == spec.test
+    if result != spec.test
+        println("false $(hex(result))")
+        @test result == spec.test
+    end
     print(".")
     result= crc(spec, Uint8, true)(TEST)
-    println("result $(hex(result))")
-    @test result == spec.test
+    if result != spec.test
+        println("true $(hex(result))")
+        @test result == spec.test
+    end
     println("ok")
 end
 
@@ -81,10 +85,9 @@ end
 function test_all()
     bad = Set()
     for _ in 1:10
-#        data = rand(Uint8, rand(100:200))
-        data = rand(Uint8, rand(10:20))
-#        for spec in ALL
-        for spec in [CRC_7]
+        data = rand(Uint8, rand(100:200))
+#        data = rand(Uint8, rand(10:20))
+        for spec in ALL
             if ! in(spec, bad)
 #                r1 = crc(spec, data)
                 r1 = crc(spec, Uint8, false)(data)
@@ -105,18 +108,18 @@ function test_all()
 end
 
 function tests()
-#    test_crc(CRC_3_ROHC)
-#    test_crc(CRC_7_ROHC)
-#    test_crc(CRC_4_ITU)
-#    test_crc(CRC_32)
-#    test_crc(CRC_7)
-#    test_crc(CRC_8)
-#    test_crc(CRC_10)
+    test_crc(CRC_3_ROHC)
+    test_crc(CRC_7_ROHC)
+    test_crc(CRC_4_ITU)
+    test_crc(CRC_32)
+    test_crc(CRC_7)
+    test_crc(CRC_8)
+    test_crc(CRC_10)
 #    test_crc(CRC_8_CDMA2000)
 #    test_crc(CRC_5_EPC)
-#    test_crc_no_table()
-#    test_tables()
-#    test_crc_table(false)
+    test_crc_no_table()
+    test_tables()
+    test_crc_table(false)
 #    test_crc_table(true)
     test_all()
 end

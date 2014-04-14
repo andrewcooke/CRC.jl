@@ -342,17 +342,14 @@ function loop_tables_ref{D<:U, A<:U
                          }(::Type{D}, poly::A, remainder::A, data, tables::Vector{Vector{A}})
 
     n_tables = length(tables)
-#    println("$(length(tables)) tables")
 
     for word::D in data
         tmp::A = remainder $ convert(A, word)
         remainder = tmp >>> 8*sizeof(D)
         # TODO - unroll statically
         for t in 1:n_tables
-#            println("$(hex(word)) $(hex(tmp)) $(hex(remainder)) table[$t][$(hex((tmp >>> (n_tables - t)*8) & 0xff))]=$(hex(tables[t][(tmp >>> (n_tables - t)*8) & 0xff + 1]))")
             remainder $= tables[t][(tmp >>> (n_tables - t)*8) & 0xff + 1]
         end
-#        println(hex(remainder))
     end
     remainder
 end
@@ -369,10 +366,8 @@ function loop_tables_pad{D<:U, A<:U
         remainder = tmp << 8*sizeof(D)
         # TODO - unroll statically
         for t in 1:n_tables
-            println("$(hex(word)) $(hex(tmp)) $(hex(remainder)) table[$t][$(hex((tmp >>> (pad_8 - (t-1)*8)) & 0xff + 1))]=$(hex(tables[t][(tmp >>> (pad_8 - (t-1)*8)) & 0xff + 1]))")
             remainder $= tables[t][(tmp >>> (pad_8 - (t-1)*8)) & 0xff + 1]
         end        
-        println(hex(remainder))
     end
     remainder
 end
