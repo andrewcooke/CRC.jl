@@ -259,7 +259,7 @@ function make_tables_pad{D<:U, A<:U, P<:U
             if remainder & carry == carry
                 remainder = (remainder << 1) $ poly
             else
-               remainder <<= 1
+                remainder <<= 1
             end
         end
         tables[1][index + 1] = remainder
@@ -342,17 +342,17 @@ function loop_tables_ref{D<:U, A<:U
                          }(::Type{D}, poly::A, remainder::A, data, tables::Vector{Vector{A}})
 
     n_tables = length(tables)
-    println("$(length(tables)) tables")
+#    println("$(length(tables)) tables")
 
     for word::D in data
         tmp::A = remainder $ convert(A, word)
         remainder = tmp >>> 8*sizeof(D)
         # TODO - unroll statically
         for t in 1:n_tables
-            println("$(hex(word)) $(hex(tmp)) $(hex(remainder)) table[$t][$(hex((tmp >>> (n_tables - t)*8) & 0xff))]=$(hex(tables[t][(tmp >>> (n_tables - t)*8) & 0xff + 1]))")
+#            println("$(hex(word)) $(hex(tmp)) $(hex(remainder)) table[$t][$(hex((tmp >>> (n_tables - t)*8) & 0xff))]=$(hex(tables[t][(tmp >>> (n_tables - t)*8) & 0xff + 1]))")
             remainder $= tables[t][(tmp >>> (n_tables - t)*8) & 0xff + 1]
         end
-        println(hex(remainder))
+#        println(hex(remainder))
     end
     remainder
 end
@@ -362,12 +362,13 @@ function loop_tables_pad{D<:U, A<:U
 
     pad_d = pad(A, D)
     pad_8 = pad(A, 8)
+    n_tables = length(tables)
 
     for word::D in data
         tmp::A = remainder $ (convert(A, word) << pad_d)
         remainder = tmp << 8*sizeof(D)
         # TODO - unroll statically
-        for t in 1:length(tables)
+        for t in 1:n_tables
             println("$(hex(word)) $(hex(tmp)) $(hex(remainder)) table[$t][$(hex((tmp >>> (pad_8 - (t-1)*8)) & 0xff + 1))]=$(hex(tables[t][(tmp >>> (pad_8 - (t-1)*8)) & 0xff + 1]))")
             remainder $= tables[t][(tmp >>> (pad_8 - (t-1)*8)) & 0xff + 1]
         end        

@@ -4,7 +4,7 @@ using Base.Test
 #using IntModN
 import Zlib: crc32
 
-all = [CRC_3_ROHC, CRC_4_ITU, CRC_5_EPC, CRC_5_ITU,
+ALL = [CRC_3_ROHC, CRC_4_ITU, CRC_5_EPC, CRC_5_ITU,
        CRC_5_USB, CRC_6_CDMA2000_A, CRC_6_CDMA2000_B, CRC_6_DARC,
        CRC_6_ITU, CRC_7, CRC_7_ROHC, CRC_8, CRC_8_CDMA2000,
        CRC_8_DARC, CRC_8_DVB_S2, CRC_8_EBU, CRC_8_I_CODE, CRC_8_ITU,
@@ -37,7 +37,7 @@ end
 
 function test_crc_no_table()
     print("no table")
-    for spec in all
+    for spec in ALL
         result = crc(spec, TEST)
         if result != spec.test
             println("$spec $(hex(result)) $(hex(spec.test))")
@@ -66,7 +66,7 @@ end
 
 function test_crc_table(flag)
     print("table $flag")
-    for spec in all
+    for spec in ALL
         c = crc(spec, Uint8, flag)
         result = c(TEST)
         if result != spec.test
@@ -78,20 +78,47 @@ function test_crc_table(flag)
     println("ok")
 end
 
+function test_all()
+    bad = Set()
+    for _ in 1:10
+#        data = rand(Uint8, rand(100:200))
+        data = rand(Uint8, rand(10:20))
+#        for spec in ALL
+        for spec in [CRC_7]
+            if ! in(spec, bad)
+#                r1 = crc(spec, data)
+                r1 = crc(spec, Uint8, false)(data)
+                r2 = crc(spec, Uint8, true)(data)
+                if r1 != r2
+                    push!(bad, spec)
+                end
+            end
+        end
+    end
+    if length(bad) > 0
+        println("failed:")
+        for spec in bad
+            println(spec)
+        end
+        @test false
+    end
+end
+
 function tests()
-    test_crc(CRC_3_ROHC)
-    test_crc(CRC_7_ROHC)
-    test_crc(CRC_4_ITU)
-    test_crc(CRC_32)
-    test_crc(CRC_7)
-    test_crc(CRC_8)
-    test_crc(CRC_10)
-    test_crc(CRC_8_CDMA2000)
-    test_crc(CRC_5_EPC)
-    test_crc_no_table()
-    test_tables()
-    test_crc_table(false)
-    test_crc_table(true)
+#    test_crc(CRC_3_ROHC)
+#    test_crc(CRC_7_ROHC)
+#    test_crc(CRC_4_ITU)
+#    test_crc(CRC_32)
+#    test_crc(CRC_7)
+#    test_crc(CRC_8)
+#    test_crc(CRC_10)
+#    test_crc(CRC_8_CDMA2000)
+#    test_crc(CRC_5_EPC)
+#    test_crc_no_table()
+#    test_tables()
+#    test_crc_table(false)
+#    test_crc_table(true)
+    test_all()
 end
 
 tests()
