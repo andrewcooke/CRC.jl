@@ -54,7 +54,7 @@ end
 
 function test_tables()
     print("tables")
-    tables = make_tables(Uint32, Uint32, CRC_32)
+    tables = make_tables(Uint32, Uint32, CRC_32.width, CRC_32.poly, CRC_32.refin)
     # values from zlib crc32.h
     @test length(tables) == 4
     for t in 1:4
@@ -108,7 +108,6 @@ function test_all()
 end
 
 function tests()
-    test_tables()
     test_crc(CRC_3_ROHC)
     test_crc(CRC_7_ROHC)
     test_crc(CRC_4_ITU)
@@ -119,6 +118,7 @@ function tests()
 #    test_crc(CRC_8_CDMA2000)
 #    test_crc(CRC_5_EPC)
     test_crc_no_table()
+    test_tables()
     test_crc_table(false)
 #    test_crc_table(true)
     test_all()
