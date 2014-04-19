@@ -31,25 +31,40 @@ export crc, make_tables, TEST, CRC_3_ROHC, CRC_4_ITU, CRC_5_EPC,
        CRC_32_JAMCRC, CRC_32_XFER, CRC_40_GSM, CRC_64, CRC_64_WE,
        CRC_64_XZ, CRC_82_DARC
 
+import Base: convert, show
+
 typealias U Unsigned
+
+# embed reflection flag in types to allow dispatch on order
+abstract Order
+immutable Direct <: Order end
+immutable Reflect <: Order end
 
 TEST = b"123456789"
 
-# TODO - assert type has space for width etc
-type Spec{P<:U}
-    # http://www.zlib.net/crc_v3.txt
-    width::Int    # polynomial degree
-    poly::P       # generating poly with msb missing
-    init::P       # initial remainder
-    refin::Bool   # reflect input
-    refout::Bool  # reflect output
-    xorout::P     # xored with final remainder
-    test::P       # checksum for TEST
+# http://www.zlib.net/crc_v3.txt
+immutable Spec{P<:U, IN<:Order, OUT<:Order}
+    width::Int     # polynomial degree
+    poly::P        # generating poly with msb missing
+    init::P        # initial remainder
+    xorout::P      # xored with final remainder
+    check::P       # checksum for TEST
+#    function Spec(width, poly, init, xorout, check)
+#        @assert width <= 8*sizeof(P)
+#        new(width, poly, init, xorout, check)
+#    end
 end
 
-Spec{P<:U}(poly::P, init::P, refin::Bool, refout::Bool, xorout::P, test::P) = 
-    Spec(8*sizeof(P), poly, init, refin, refout, xorout, test)
+Spec{P<:U}(width::Int, poly::P, init::P, refin::Bool, refout::Bool, xorout::P, check::P) = 
+    Spec{P, refin ? Reflect : Order, refout ? Reflect : Direct}(width, poly, init, xorout, check)
+Spec{P<:U}(poly::P, init::P, refin::Bool, refout::Bool, xorout::P, check::P) = 
+    Spec(8*sizeof(P), poly, init, refin, refout, xorout, check)
 
+order_to_bool{O<:Order}(::Type{O}) = O == Reflect
+function show{P<:U, IN<:Order, OUT<:Order}(io::IO, spec::Spec{P, IN, OUT})
+    pad = 2 * sizeof(P)
+    print(io, "Spec($(spec.width),0x$(hex(spec.poly, pad)),0x$(hex(spec.init, pad)),$(order_to_bool(IN)),$(order_to_bool(OUT)),0x$(hex(spec.xorout, pad)),0x$(hex(spec.check, pad)))")
+end
 
 # http://reveng.sourceforge.net/crc-catalogue/1-15.htm
 CRC_3_ROHC =         Spec(3, 0x03, 0x07, true,  true,  0x00, 0x06)
@@ -206,21 +221,17 @@ end
 INDEX_SIZE = 8
 TABLE_SIZE = 256
 
-function make_tables{D<:U, A<:U, P<:U
-                     }(::Type{D}, ::Type{A}, width, poly::P, refin)
+function make_tables{D<:U, A<:U, P<:U, IN<:Order, OUT<:Order
+                     }(::Type{D}, ::Type{A}, spec::Spec{P, IN, OUT})
 
     n_tables = 8 * sizeof(D) / INDEX_SIZE
     tables = Vector{A}[Array(A, TABLE_SIZE) for _ in 1:n_tables]
 
-    if refin
-        make_tables_ref(tables, D, width, poly)
-    else
-        make_tables_pad(tables, D, width, poly)
-    end
+    make_tables(tables, D, spec.width, spec.poly, IN)
 end
 
-function make_tables_ref{D<:U, A<:U, P<:U
-                         }(tables::Vector{Vector{A}}, ::Type{D}, width, poly::P)
+function make_tables{D<:U, A<:U, P<:U
+                     }(tables::Vector{Vector{A}}, ::Type{D}, width, poly::P, ::Type{Reflect})
 
     poly = reflect(width, poly)
 
@@ -245,8 +256,8 @@ function make_tables_ref{D<:U, A<:U, P<:U
     tables
 end
 
-function make_tables_pad{D<:U, A<:U, P<:U
-                         }(tables::Vector{Vector{A}}, ::Type{D}, width, poly::P)
+function make_tables{D<:U, A<:U, P<:U
+                     }(tables::Vector{Vector{A}}, ::Type{D}, width, poly::P, ::Type{Order})
 
     pad_p = pad(A, width)
     poly = convert(A, poly) << pad_p
