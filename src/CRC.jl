@@ -150,13 +150,6 @@ function reflect{T<:U}(size, u::T)
     reflect(u) >>> (width - size)
 end
 
-function itype(iterable, default)
-    for i in iterable
-        return typeof(i)
-    end
-    return default
-end
-
 function to_uint(size_or_type)
     if isa(size_or_type, Type) && issubtype(size_or_type, U) && isleaftype(size_or_type)
         return size_or_type
