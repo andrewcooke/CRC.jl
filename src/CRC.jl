@@ -336,7 +336,7 @@ function extend{P<:U, A<:U}(spec::Spec{P}, algo::Reversed{A}, tables::Single{A},
 end
 
 # this special case short-circuits "all Uint8" avoiding a
-# self-recusrive loop below
+# self-recursive loop below
 function extend{P<:U}(spec::Spec{P}, algo::Reversed{Uint8}, tables::Multiple{Uint8}, data::Vector{Uint8}, remainder::Uint8)
     extend(spec, algo, Single(tables), data, remainder)
 end
