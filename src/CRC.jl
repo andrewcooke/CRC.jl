@@ -350,7 +350,7 @@ for A in (Uint16, Uint32, Uint64, Uint128)
     @eval begin
         function extend{P<:U}(spec::Spec{P}, algo::Reversed{$A}, tables::Multiple{$A}, data::Vector{$A}, remainder::$A)
             n_tables = length(tables.tables)
-            word::$A, tmp::$A, remaidner::$A = zero($A), zero($A), remainder
+            word::$A, tmp::$A, remainder::$A = zero($A), zero($A), remainder
             i = 1
             while true
                 @nexprs 8 _ -> begin  # unroll inner loop 8 times
