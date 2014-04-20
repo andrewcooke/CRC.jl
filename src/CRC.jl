@@ -279,7 +279,9 @@ end
 
 
 # for direct (non-reflected) CRCs we currently use a single lookup
-# table (only).
+# table (only) (we could, and probably should use multiple tables -
+# but it's a little more complex than reversed because you also need
+# to shift the accumulator around).
 function make_tables{A<:U}(spec, algo::Padded{A}, tables::Single{A})
     tables.table = Array(A, 256)
     for index in zero(Uint8):convert(Uint8, 255)
