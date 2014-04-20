@@ -150,41 +150,21 @@ function reflect{T<:U}(size, u::T)
     reflect(u) >>> (width - size)
 end
 
-function to_uint(size_or_type)
-    if isa(size_or_type, Type) && issubtype(size_or_type, U) && isleaftype(size_or_type)
-        return size_or_type
-    elseif isa(size_or_type, Integer) && size_or_type > 0
-        if size_or_type <= 8
-            return Uint8
-        elseif size_or_type <= 16
-            return Uint16
-        elseif size_or_type <= 32
-            return Uint32
-        elseif size_or_type <= 64
-            return Uint64
-        elseif size_or_type <= 128
-            return Uint128
-        end
-    end
-    error("unexpected type / size: $size_or_type ($(typeof(size_or_type)))")
-end
-
 function largest(T, TS...)
-    big = to_uint(T)
-    for t in map(to_uint, TS)
-        if sizeof(t) > sizeof(big)
-            big = t
+    for t in TS
+        if sizeof(t) > sizeof(T)
+            T = t
         end
     end
-    big
+    T
 end
 
 function fastest(T, TS...)
-    l = largest(T, TS...)
-    if l == Uint32 && Uint32 != Uint
+    L = largest(T, TS...)
+    if L == Uint32 && Uint32 != Uint
         Uint64  # round up for speed
     else
-        l
+        L
     end
 end
 
