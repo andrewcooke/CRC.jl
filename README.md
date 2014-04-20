@@ -17,7 +17,7 @@ Redundancy Checksums (CRCs).
   you know of one).
 
 * Only arrays of bytes are accepted as data (again, contact me if you
-  want soemthing else as it's certainly possible to handle arbitrary
+  want something else as it's certainly possible to handle arbitrary
   sized sequences; previous versions did this, but it complicated the
   code for little practical gain so I removed it).
 
