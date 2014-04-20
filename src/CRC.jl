@@ -13,7 +13,7 @@
 
 module CRC
 
-export crc, crc_new, make_tables, TEST, CRC_3_ROHC, CRC_4_ITU, CRC_5_EPC,
+export crc, make_tables, TEST, CRC_3_ROHC, CRC_4_ITU, CRC_5_EPC,
        CRC_5_ITU, CRC_5_USB, CRC_6_CDMA2000_A, CRC_6_CDMA2000_B,
        CRC_6_DARC, CRC_6_ITU, CRC_7, CRC_7_ROHC, CRC_8,
        CRC_8_CDMA2000, CRC_8_DARC, CRC_8_DVB_S2, CRC_8_EBU,
@@ -224,12 +224,12 @@ function Padded{P<:U}(spec::Spec{P})
     Padded(pad_p, poly, carry, pad_8, init)
 end
 
-function crc_new{P<:U}(spec::Spec{P}; lookup=true)
+function crc{P<:U}(spec::Spec{P}; lookup=true)
     algo = spec.refin ? Reversed(spec) : Padded(spec)
-    crc_new(spec, algo; lookup=lookup)
+    crc(spec, algo; lookup=lookup)
 end
 
-function crc_new{P<:U, A<:U}(spec::Spec{P}, algo::Algorithm{A}; lookup=true)
+function crc{P<:U, A<:U}(spec::Spec{P}, algo::Algorithm{A}; lookup=true)
     if lookup
         tables = spec.refin ? Multiple{A}() : Single{A}()
         tables = make_tables(spec, algo, tables)
