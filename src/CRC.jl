@@ -13,7 +13,7 @@
 
 module CRC
 
-export crc, make_tables, TEST, CRC_3_ROHC, CRC_4_ITU, CRC_5_EPC,
+export crc, make_tables, spec, TEST, CRC_3_ROHC, CRC_4_ITU, CRC_5_EPC,
        CRC_5_ITU, CRC_5_USB, CRC_6_CDMA2000_A, CRC_6_CDMA2000_B,
        CRC_6_DARC, CRC_6_ITU, CRC_7, CRC_7_ROHC, CRC_8,
        CRC_8_CDMA2000, CRC_8_DARC, CRC_8_DVB_S2, CRC_8_EBU,
@@ -35,11 +35,14 @@ import Base.Cartesian: @nexprs
 
 typealias U Unsigned
 
-TEST = b"123456789"
 
-# TODO - assert type has space for width etc
+
+# ---- CRC specifications from http://www.zlib.net/crc_v3.txt
+
+
+TEST = b"123456789"   # universal test vector
+
 type Spec{P<:U}
-    # http://www.zlib.net/crc_v3.txt
     width::Int    # polynomial degree
     poly::P       # generating poly with msb missing
     init::P       # initial remainder
@@ -47,86 +50,97 @@ type Spec{P<:U}
     refout::Bool  # reflect output
     xorout::P     # xored with final remainder
     test::P       # checksum for TEST
+    function Spec(width::Int, poly::P, init::P, refin::Bool, refout::Bool, xorout::P, test::P)
+        @assert width <= 8 * sizeof(P)
+        new(width, poly, init, refin, refout, xorout, test)
+    end
 end
 
-Spec{P<:U}(poly::P, init::P, refin::Bool, refout::Bool, xorout::P, test::P) = 
-    Spec(8*sizeof(P), poly, init, refin, refout, xorout, test)
+spec{P<:U}(poly::P, init::P, refin::Bool, refout::Bool, xorout::P, test::P) = 
+    Spec{P}(8*sizeof(P), poly, init, refin, refout, xorout, test)
+
+spec{P<:U}(width::Int, poly::P, init::P, refin::Bool, refout::Bool, xorout::P, test::P) = 
+    Spec{P}(width, poly, init, refin, refout, xorout, test)
 
 
 # http://reveng.sourceforge.net/crc-catalogue/1-15.htm
-CRC_3_ROHC =         Spec(3, 0x03, 0x07, true,  true,  0x00, 0x06)
-CRC_4_ITU =          Spec(4, 0x03, 0x00, true,  true,  0x00, 0x07)
-CRC_5_EPC =          Spec(5, 0x09, 0x09, false, false, 0x00, 0x00)
-CRC_5_ITU =          Spec(5, 0x15, 0x00, true,  true,  0x00, 0x07)
-CRC_5_USB =          Spec(5, 0x05, 0x1f, true,  true,  0x1f, 0x19)
-CRC_6_CDMA2000_A =   Spec(6, 0x27, 0x3f, false, false, 0x00, 0x0d)
-CRC_6_CDMA2000_B =   Spec(6, 0x07, 0x3f, false, false, 0x00, 0x3b)
-CRC_6_DARC =         Spec(6, 0x19, 0x00, true,  true,  0x00, 0x26)
-CRC_6_ITU =          Spec(6, 0x03, 0x00, true,  true,  0x00, 0x06)
-CRC_7 =              Spec(7, 0x09, 0x00, false, false, 0x00, 0x75)
-CRC_7_ROHC =         Spec(7, 0x4f, 0x7f, true,  true,  0x00, 0x53)
-CRC_8 =              Spec(0x07, 0x00, false, false, 0x00, 0xf4)
-CRC_8_CDMA2000 =     Spec(0x9b, 0xff, false, false, 0x00, 0xda)
-CRC_8_DARC =         Spec(0x39, 0x00, true,  true,  0x00, 0x15)
-CRC_8_DVB_S2 =       Spec(0xd5, 0x00, false, false, 0x00, 0xbc)
-CRC_8_EBU =          Spec(0x1d, 0xff, true,  true,  0x00, 0x97)
-CRC_8_I_CODE =       Spec(0x1d, 0xfd, false, false, 0x00, 0x7e)
-CRC_8_ITU =          Spec(0x07, 0x00, false, false, 0x55, 0xa1)
-CRC_8_MAXIM =        Spec(0x31, 0x00, true,  true,  0x00, 0xa1)
-CRC_8_ROHC =         Spec(0x07, 0xff, true,  true,  0x00, 0xd0)
-CRC_8_WCDMA =        Spec(0x9b, 0x00, true,  true,  0x00, 0x25)
-CRC_10 =             Spec(10, 0x0233, 0x0000, false, false, 0x0000, 0x0199)
-CRC_10_CDMA2000 =    Spec(10, 0x03d9, 0x03ff, false, false, 0x0000, 0x0233)
-CRC_11 =             Spec(11, 0x0385, 0x001a, false, false, 0x0000, 0x05a3)
-CRC_12_3GPP =        Spec(12, 0x080f, 0x0000, false, true,  0x0000, 0x0daf)
-CRC_12_CDMA2000 =    Spec(12, 0x0f13, 0x0fff, false, false, 0x0000, 0x0d4d)
-CRC_12_DECT =        Spec(12, 0x080f, 0x0000, false, false, 0x0000, 0x0f5b)
-CRC_13_BBC =         Spec(13, 0x1cf5, 0x0000, false, false, 0x0000, 0x04fa)
-CRC_14_DARC =        Spec(14, 0x0805, 0x0000, true,  true,  0x0000, 0x082d)
-CRC_15 =             Spec(15, 0x4599, 0x0000, false, false, 0x0000, 0x059e)
-CRC_15_MPT1327 =     Spec(15, 0x6815, 0x0000, false, false, 0x0001, 0x2566)
+CRC_3_ROHC =         spec(3, 0x03, 0x07, true,  true,  0x00, 0x06)
+CRC_4_ITU =          spec(4, 0x03, 0x00, true,  true,  0x00, 0x07)
+CRC_5_EPC =          spec(5, 0x09, 0x09, false, false, 0x00, 0x00)
+CRC_5_ITU =          spec(5, 0x15, 0x00, true,  true,  0x00, 0x07)
+CRC_5_USB =          spec(5, 0x05, 0x1f, true,  true,  0x1f, 0x19)
+CRC_6_CDMA2000_A =   spec(6, 0x27, 0x3f, false, false, 0x00, 0x0d)
+CRC_6_CDMA2000_B =   spec(6, 0x07, 0x3f, false, false, 0x00, 0x3b)
+CRC_6_DARC =         spec(6, 0x19, 0x00, true,  true,  0x00, 0x26)
+CRC_6_ITU =          spec(6, 0x03, 0x00, true,  true,  0x00, 0x06)
+CRC_7 =              spec(7, 0x09, 0x00, false, false, 0x00, 0x75)
+CRC_7_ROHC =         spec(7, 0x4f, 0x7f, true,  true,  0x00, 0x53)
+CRC_8 =              spec(0x07, 0x00, false, false, 0x00, 0xf4)
+CRC_8_CDMA2000 =     spec(0x9b, 0xff, false, false, 0x00, 0xda)
+CRC_8_DARC =         spec(0x39, 0x00, true,  true,  0x00, 0x15)
+CRC_8_DVB_S2 =       spec(0xd5, 0x00, false, false, 0x00, 0xbc)
+CRC_8_EBU =          spec(0x1d, 0xff, true,  true,  0x00, 0x97)
+CRC_8_I_CODE =       spec(0x1d, 0xfd, false, false, 0x00, 0x7e)
+CRC_8_ITU =          spec(0x07, 0x00, false, false, 0x55, 0xa1)
+CRC_8_MAXIM =        spec(0x31, 0x00, true,  true,  0x00, 0xa1)
+CRC_8_ROHC =         spec(0x07, 0xff, true,  true,  0x00, 0xd0)
+CRC_8_WCDMA =        spec(0x9b, 0x00, true,  true,  0x00, 0x25)
+CRC_10 =             spec(10, 0x0233, 0x0000, false, false, 0x0000, 0x0199)
+CRC_10_CDMA2000 =    spec(10, 0x03d9, 0x03ff, false, false, 0x0000, 0x0233)
+CRC_11 =             spec(11, 0x0385, 0x001a, false, false, 0x0000, 0x05a3)
+CRC_12_3GPP =        spec(12, 0x080f, 0x0000, false, true,  0x0000, 0x0daf)
+CRC_12_CDMA2000 =    spec(12, 0x0f13, 0x0fff, false, false, 0x0000, 0x0d4d)
+CRC_12_DECT =        spec(12, 0x080f, 0x0000, false, false, 0x0000, 0x0f5b)
+CRC_13_BBC =         spec(13, 0x1cf5, 0x0000, false, false, 0x0000, 0x04fa)
+CRC_14_DARC =        spec(14, 0x0805, 0x0000, true,  true,  0x0000, 0x082d)
+CRC_15 =             spec(15, 0x4599, 0x0000, false, false, 0x0000, 0x059e)
+CRC_15_MPT1327 =     spec(15, 0x6815, 0x0000, false, false, 0x0001, 0x2566)
 
 # http://reveng.sourceforge.net/crc-catalogue/16.htm#crc.cat.crc-16-ccitt-false
-CRC_16_ARC =         Spec(0x8005, 0x0000, true,  true,  0x0000, 0xbb3d)
-CRC_16_AUG_CCITT =   Spec(0x1021, 0x1d0f, false, false, 0x0000, 0xe5cc)
-CRC_16_BUYPASS   =   Spec(0x8005, 0x0000, false, false, 0x0000, 0xfee8)
-CRC_16_CCITT_FALSE = Spec(0x1021, 0xffff, false, false, 0x0000, 0x29b1)
-CRC_16_CDMA2000 =    Spec(0xc867, 0xffff, false, false, 0x0000, 0x4c06)
-CRC_16_DDS_110 =     Spec(0x8005, 0x800d, false, false, 0x0000, 0x9ecf)
-CRC_16_DECT_R =      Spec(0x0589, 0x0000, false, false, 0x0001, 0x007e)
-CRC_16_DECT_X =      Spec(0x0589, 0x0000, false, false, 0x0000, 0x007f)
-CRC_16_DNP =         Spec(0x3d65, 0x0000, true,  true,  0xffff, 0xea82)
-CRC_16_EN_13757 =    Spec(0x3d65, 0x0000, false, false, 0xffff, 0xc2b7)
-CRC_16_GENIBUS =     Spec(0x1021, 0xffff, false, false, 0xffff, 0xd64e)
-CRC_16_MAXIM =       Spec(0x8005, 0x0000, true,  true,  0xffff, 0x44c2)
-CRC_16_RIELLO =      Spec(0x8bb7, 0x0000, false, false, 0x0000, 0xd0db)
-CRC_16_TELEDISK =    Spec(0x1021, 0x89ec, true,  true,  0x0000, 0x26b1)
-CRC_16_USB =         Spec(0x8005, 0xffff, true,  true,  0xffff, 0xb4c8)
-CRC_16_CRC_A =       Spec(0x1021, 0xc6c6, true,  true,  0x0000, 0xbf05)
-CRC_16_KERMIT =      Spec(0x1021, 0x0000, true,  true,  0x0000, 0x2189)
-CRC_16_MODBUS =      Spec(0x8005, 0xffff, true,  true,  0x0000, 0x4b37)
-CRC_16_X_25 =        Spec(0x1021, 0xffff, true,  true,  0xffff, 0x906e)
-CRC_16_XMODEM =      Spec(0x1021, 0x0000, false, false, 0x0000, 0x31c3)
+CRC_16_ARC =         spec(0x8005, 0x0000, true,  true,  0x0000, 0xbb3d)
+CRC_16_AUG_CCITT =   spec(0x1021, 0x1d0f, false, false, 0x0000, 0xe5cc)
+CRC_16_BUYPASS   =   spec(0x8005, 0x0000, false, false, 0x0000, 0xfee8)
+CRC_16_CCITT_FALSE = spec(0x1021, 0xffff, false, false, 0x0000, 0x29b1)
+CRC_16_CDMA2000 =    spec(0xc867, 0xffff, false, false, 0x0000, 0x4c06)
+CRC_16_DDS_110 =     spec(0x8005, 0x800d, false, false, 0x0000, 0x9ecf)
+CRC_16_DECT_R =      spec(0x0589, 0x0000, false, false, 0x0001, 0x007e)
+CRC_16_DECT_X =      spec(0x0589, 0x0000, false, false, 0x0000, 0x007f)
+CRC_16_DNP =         spec(0x3d65, 0x0000, true,  true,  0xffff, 0xea82)
+CRC_16_EN_13757 =    spec(0x3d65, 0x0000, false, false, 0xffff, 0xc2b7)
+CRC_16_GENIBUS =     spec(0x1021, 0xffff, false, false, 0xffff, 0xd64e)
+CRC_16_MAXIM =       spec(0x8005, 0x0000, true,  true,  0xffff, 0x44c2)
+CRC_16_RIELLO =      spec(0x8bb7, 0x0000, false, false, 0x0000, 0xd0db)
+CRC_16_TELEDISK =    spec(0x1021, 0x89ec, true,  true,  0x0000, 0x26b1)
+CRC_16_USB =         spec(0x8005, 0xffff, true,  true,  0xffff, 0xb4c8)
+CRC_16_CRC_A =       spec(0x1021, 0xc6c6, true,  true,  0x0000, 0xbf05)
+CRC_16_KERMIT =      spec(0x1021, 0x0000, true,  true,  0x0000, 0x2189)
+CRC_16_MODBUS =      spec(0x8005, 0xffff, true,  true,  0x0000, 0x4b37)
+CRC_16_X_25 =        spec(0x1021, 0xffff, true,  true,  0xffff, 0x906e)
+CRC_16_XMODEM =      spec(0x1021, 0x0000, false, false, 0x0000, 0x31c3)
 
 # http://reveng.sourceforge.net/crc-catalogue/17plus.htm
-CRC_24 =             Spec(24, 0x00864cfb, 0x00b704ce, false, false, 0x00000000, 0x0021cf02)
-CRC_24_FLEXRAY_A =   Spec(24, 0x005d6dcb, 0x00fedcba, false, false, 0x00000000, 0x007979bd)
-CRC_24_FLEXRAY_B =   Spec(24, 0x005d6dcb, 0x00abcdef, false, false, 0x00000000, 0x001f23b8)
-CRC_31_PHILIPS =     Spec(31, 0x04c11db7, 0x7fffffff, false, false, 0x7fffffff, 0x0ce9e46c)
-CRC_32 =             Spec(0x04c11db7, 0xffffffff, true,  true,  0xffffffff, 0xcbf43926)
-CRC_32_BZIP2 =       Spec(0x04c11db7, 0xffffffff, false, false, 0xffffffff, 0xfc891918)
-CRC_32_C =           Spec(0x1edc6f41, 0xffffffff, true,  true,  0xffffffff, 0xe3069283)
-CRC_32_D =           Spec(0xa833982b, 0xffffffff, true,  true,  0xffffffff, 0x87315576)
-CRC_32_MPEG_2 =      Spec(0x04c11db7, 0xffffffff, false, false, 0x00000000, 0x0376e6e7)
-CRC_32_POSIX =       Spec(0x04c11db7, 0x00000000, false, false, 0xffffffff, 0x765e7680)
-CRC_32_Q =           Spec(0x814141ab, 0x00000000, false, false, 0x00000000, 0x3010bf7f)
-CRC_32_JAMCRC =      Spec(0x04c11db7, 0xffffffff, true,  true,  0x00000000, 0x340bc6d9)
-CRC_32_XFER =        Spec(0x000000af, 0x00000000, false, false, 0x00000000, 0xbd0be338)
-CRC_40_GSM =         Spec(40, 0x0000000004820009, 0x0000000000000000, false, false, 0x000000ffffffffff, 0x000000d4164fc646)
-CRC_64 =             Spec(0x42f0e1eba9ea3693, 0x0000000000000000, false, false, 0x0000000000000000, 0x6c40df5f0b497347)
-CRC_64_WE =          Spec(0x42f0e1eba9ea3693, 0xffffffffffffffff, false, false, 0xffffffffffffffff, 0x62ec59e3f1a4f00a)
-CRC_64_XZ =          Spec(0x42f0e1eba9ea3693, 0xffffffffffffffff, true,  true,  0xffffffffffffffff, 0x995dc9bbdf1939fa)
-CRC_82_DARC =        Spec(82, 0x0308c0111011401440411, 0x000000000000000000000, true,  true,   0x000000000000000000000, 0x09ea83f625023801fd612)
+CRC_24 =             spec(24, 0x00864cfb, 0x00b704ce, false, false, 0x00000000, 0x0021cf02)
+CRC_24_FLEXRAY_A =   spec(24, 0x005d6dcb, 0x00fedcba, false, false, 0x00000000, 0x007979bd)
+CRC_24_FLEXRAY_B =   spec(24, 0x005d6dcb, 0x00abcdef, false, false, 0x00000000, 0x001f23b8)
+CRC_31_PHILIPS =     spec(31, 0x04c11db7, 0x7fffffff, false, false, 0x7fffffff, 0x0ce9e46c)
+CRC_32 =             spec(0x04c11db7, 0xffffffff, true,  true,  0xffffffff, 0xcbf43926)
+CRC_32_BZIP2 =       spec(0x04c11db7, 0xffffffff, false, false, 0xffffffff, 0xfc891918)
+CRC_32_C =           spec(0x1edc6f41, 0xffffffff, true,  true,  0xffffffff, 0xe3069283)
+CRC_32_D =           spec(0xa833982b, 0xffffffff, true,  true,  0xffffffff, 0x87315576)
+CRC_32_MPEG_2 =      spec(0x04c11db7, 0xffffffff, false, false, 0x00000000, 0x0376e6e7)
+CRC_32_POSIX =       spec(0x04c11db7, 0x00000000, false, false, 0xffffffff, 0x765e7680)
+CRC_32_Q =           spec(0x814141ab, 0x00000000, false, false, 0x00000000, 0x3010bf7f)
+CRC_32_JAMCRC =      spec(0x04c11db7, 0xffffffff, true,  true,  0x00000000, 0x340bc6d9)
+CRC_32_XFER =        spec(0x000000af, 0x00000000, false, false, 0x00000000, 0xbd0be338)
+CRC_40_GSM =         spec(40, 0x0000000004820009, 0x0000000000000000, false, false, 0x000000ffffffffff, 0x000000d4164fc646)
+CRC_64 =             spec(0x42f0e1eba9ea3693, 0x0000000000000000, false, false, 0x0000000000000000, 0x6c40df5f0b497347)
+CRC_64_WE =          spec(0x42f0e1eba9ea3693, 0xffffffffffffffff, false, false, 0xffffffffffffffff, 0x62ec59e3f1a4f00a)
+CRC_64_XZ =          spec(0x42f0e1eba9ea3693, 0xffffffffffffffff, true,  true,  0xffffffffffffffff, 0x995dc9bbdf1939fa)
+CRC_82_DARC =        spec(82, 0x0308c0111011401440411, 0x000000000000000000000, true,  true,   0x000000000000000000000, 0x09ea83f625023801fd612)
+
+
+
+# --- Utilities
 
 
 # http://stackoverflow.com/questions/2602823/in-c-c-whats-the-simplest-way-to-reverse-the-order-of-bits-in-a-byte
@@ -152,6 +166,7 @@ function reflect{T<:U}(size, u::T)
     reflect(u) >>> (width - size)
 end
 
+
 function largest(T, TS...)
     for t in TS
         if sizeof(t) > sizeof(T)
@@ -170,9 +185,17 @@ function fastest(T, TS...)
     end
 end
 
+
 function pad{A<:U}(::Type{A}, width)
     8 * sizeof(A) - width
 end
+
+
+
+# --- CRC calculations
+
+
+# a calculation may use no, one, or many tables...
 
 abstract Table
 
@@ -188,24 +211,31 @@ type Single{A<:U}<:Table
     Single() = new()
 end
 
+# when using multiple tables we need a related single table for the
+# "last few bytes"
 function Single{A<:U}(tables::Multiple{A})
     table = Single{A}()
     table.table = tables.tables[1]
     table
 end
 
+
+# a calculation may be direct (padded to the size of the accumulator)
+# or "reverse the rest of the world".  this depends on whether the
+# input input bytes are taken as given (Padded) or reflected.
+
 abstract Algorithm{A<:U}
 
-immutable Reversed{A<:U}<:Algorithm{A}
+immutable Reflected{A<:U}<:Algorithm{A}
     poly::A
     init::A
 end
 
-function Reversed{P<:U}(spec::Spec{P})
-    A = fastest(P, Uint8)
+function Reflected{P<:U}(spec::Spec{P})
+    A = fastest(P, Uint8, Uint)  # Uint8 for the data, Uint for multiple tables
     poly = reflect(spec.width, convert(A, spec.poly))
     init = reflect(spec.width, convert(A, spec.init))
-    Reversed(poly, init)
+    Reflected(poly, init)
 end
 
 immutable Padded{A<:U}<:Algorithm{A}
@@ -226,11 +256,16 @@ function Padded{P<:U}(spec::Spec{P})
     Padded(pad_p, poly, carry, pad_8, init)
 end
 
+
+# main entry point.  infer the algorithm from the spec and delegate on.
 function crc{P<:U}(spec::Spec{P}; lookup=true)
-    algo = spec.refin ? Reversed(spec) : Padded(spec)
+    algo = spec.refin ? Reflected(spec) : Padded(spec)
     crc(spec, algo; lookup=lookup)
 end
 
+# infer the tables from the algorithm / spec and user parameters.
+# return a function that evaluates the CRC against the cached lookup
+# tables (if used).
 function crc{P<:U, A<:U}(spec::Spec{P}, algo::Algorithm{A}; lookup=true)
     if lookup
         tables = spec.refin ? Multiple{A}() : Single{A}()
@@ -242,6 +277,9 @@ function crc{P<:U, A<:U}(spec::Spec{P}, algo::Algorithm{A}; lookup=true)
                             extend(spec, algo, tables, data, algo.init))
 end
 
+
+# for direct (non-reflected) CRCs we currebtly use a single lookup
+# table (only).
 function make_tables{A<:U}(spec, algo::Padded{A}, tables::Single{A})
     tables.table = Array(A, 256)
     for index in zero(Uint8):convert(Uint8, 255)
@@ -258,7 +296,10 @@ function make_tables{A<:U}(spec, algo::Padded{A}, tables::Single{A})
     tables
 end
 
-function make_tables{A<:U}(spec, algo::Reversed{A}, tables::Multiple{A})
+
+# for reflected CRCs we used multiple lookup tables (together with
+# bunched loading).
+function make_tables{A<:U}(spec, algo::Reflected{A}, tables::Multiple{A})
     n_tables = sizeof(A)
     tables.tables = Vector{A}[Array(A, 256) for _ in 1:n_tables]
     for index in zero(Uint8):convert(Uint8, 255)
@@ -282,16 +323,25 @@ function make_tables{A<:U}(spec, algo::Reversed{A}, tables::Multiple{A})
     tables
 end
 
+
+# calculations assume that the remainder is either reflected or
+# padded; these functions correct for this to return the final result.
+
 function finalize{P<:U, A<:U}(spec::Spec{P}, algo::Padded{A}, remainder::A)
     remainder = convert(P, remainder >> algo.pad_p)
     remainder = spec.refout ? reflect(spec.width, remainder) : remainder
     remainder $ spec.xorout
 end
 
-function finalize{P<:U, A<:U}(spec::Spec{P}, algo::Reversed{A}, remainder::A)
+function finalize{P<:U, A<:U}(spec::Spec{P}, algo::Reflected{A}, remainder::A)
     remainder = spec.refout ? remainder : reflect(spec.width, remainder)
     convert(P, remainder) $ spec.xorout
 end
+
+
+# all the routines below calculate a new valueof remainder for the
+# data given (along with the algorithm type, available lookup tables,
+# etc).
 
 function extend{P<:U, A<:U}(spec::Spec{P}, algo::Padded{A}, tables::NoTable, data::Vector{Uint8}, remainder::A)
     for word::Uint8 in data
@@ -315,7 +365,7 @@ function extend{P<:U, A<:U}(spec::Spec{P}, algo::Padded{A}, tables::Single{A}, d
     remainder
 end
 
-function extend{P<:U, A<:U}(spec::Spec{P}, algo::Reversed{A}, tables::NoTable, data::Vector{Uint8}, remainder::A)
+function extend{P<:U, A<:U}(spec::Spec{P}, algo::Reflected{A}, tables::NoTable, data::Vector{Uint8}, remainder::A)
     for word::Uint8 in data
         remainder::A = remainder $ convert(A, word)
         for _ in 1:8
@@ -329,7 +379,7 @@ function extend{P<:U, A<:U}(spec::Spec{P}, algo::Reversed{A}, tables::NoTable, d
     remainder
 end
 
-function extend{P<:U, A<:U}(spec::Spec{P}, algo::Reversed{A}, tables::Single{A}, data::Vector{Uint8}, remainder::A)
+function extend{P<:U, A<:U}(spec::Spec{P}, algo::Reflected{A}, tables::Single{A}, data::Vector{Uint8}, remainder::A)
     for word::Uint8 in data
         remainder::A = remainder $ (convert(A, word))
         remainder = (remainder >>> 8) $ tables.table[1 + remainder & 0xff]
@@ -338,7 +388,7 @@ function extend{P<:U, A<:U}(spec::Spec{P}, algo::Reversed{A}, tables::Single{A},
 end
 
 # short-circuit "all Uint8" avoiding a self-recursive loop below
-function extend{P<:U}(spec::Spec{P}, algo::Reversed{Uint8}, tables::Multiple{Uint8}, data::Vector{Uint8}, remainder::Uint8)
+function extend{P<:U}(spec::Spec{P}, algo::Reflected{Uint8}, tables::Multiple{Uint8}, data::Vector{Uint8}, remainder::Uint8)
     extend(spec, algo, Single(tables), data, remainder)
 end
 
@@ -348,7 +398,7 @@ end
 for A in (Uint16, Uint32, Uint64, Uint128)
     n_tables = sizeof(A)
     @eval begin
-        function extend{P<:U}(spec::Spec{P}, algo::Reversed{$A}, tables::Multiple{$A}, data::Vector{$A}, remainder::$A)
+        function extend{P<:U}(spec::Spec{P}, algo::Reflected{$A}, tables::Multiple{$A}, data::Vector{$A}, remainder::$A)
             word::$A, tmp::$A, remainder::$A = zero($A), zero($A), remainder
             i = 1
             while true
@@ -369,7 +419,7 @@ for A in (Uint16, Uint32, Uint64, Uint128)
     end
 end
 
-function extend{P<:U, A<:U}(spec::Spec{P}, algo::Reversed{A}, tables::Multiple{A}, data::Vector{Uint8}, remainder::A)
+function extend{P<:U, A<:U}(spec::Spec{P}, algo::Reflected{A}, tables::Multiple{A}, data::Vector{Uint8}, remainder::A)
     # this is "clever" - we alias the array of bytes to native machine
     # words and then process those, which typically (64 bits) loads 8
     # bytes at a time.
