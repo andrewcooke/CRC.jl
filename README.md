@@ -10,10 +10,10 @@ Redundancy Checksums (CRCs).
 
 * Calculation can be direct or via cached tables.
 
-* Speed is comparable to optimized C for "reversed world" CRCs (eg
-  when compared to the CRC32 zlib implementation) and probably within
-  a factor of 2 or 3 when using direct CRCs (it would be good to have
-  an optimized C implementation to test against - please contact me if
+* Speed is comparable to optimized C for "reflected in" CRCs (eg when
+  compared to the CRC32 zlib implementation) and probably within a
+  factor of 2 or 3 when using direct CRCs (it would be good to have an
+  optimized C implementation to test against - please contact me if
   you know of one).
 
 * Only arrays of bytes are accepted as data (again, contact me if you
