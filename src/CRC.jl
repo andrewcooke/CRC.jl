@@ -369,8 +369,12 @@ for A in (Uint16, Uint32, Uint64, Uint128)
 end
 
 function extend{P<:U, A<:U}(spec::Spec{P}, algo::Reversed{A}, tables::Multiple{A}, data::Vector{Uint8}, remainder::A)
+    # this is "clever" - we alias the array of bytes to native machine
+    # words and then process those, which typically (64 bits) loads 8
+    # bytes at a time.
     tail = length(data) % sizeof(A)
     remainder = extend(spec, algo, tables, reinterpret(A, data), remainder)
+    # slurp up the final bytes that didn't fill a complete machine word.
     extend(spec, algo, Single(tables), data[end-tail+1:end], remainder)
 end
 
