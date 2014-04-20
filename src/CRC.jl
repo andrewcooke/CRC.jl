@@ -31,6 +31,8 @@ export crc, make_tables, TEST, CRC_3_ROHC, CRC_4_ITU, CRC_5_EPC,
        CRC_32_JAMCRC, CRC_32_XFER, CRC_40_GSM, CRC_64, CRC_64_WE,
        CRC_64_XZ, CRC_82_DARC
 
+import Cartesian: @nexprs
+
 typealias U Unsigned
 
 TEST = b"123456789"
@@ -341,17 +343,21 @@ function extend{P<:U}(spec::Spec{P}, algo::Reversed{Uint8}, tables::Multiple{Uin
     extend(spec, algo, Single(tables), data, remainder)
 end
 
-function extend{P<:U, A<:U}(spec::Spec{P}, algo::Reversed{A}, tables::Multiple{A}, data::Vector{A}, remainder::A)
-    n_tables = length(tables.tables)
-    for word::A in data
-        tmp::A = remainder $ convert(A, word)
-        remainder = zero(A)
-        # TODO - unroll statically
-        for t in 1:n_tables
-            remainder $= tables.tables[t][(tmp >>> (n_tables - t)*8) & 0xff + 1]
+for A in (Uint16, Uint32, Uint64, Uint128)
+    n_tables = sizeof(A)
+    @eval begin
+        function extend{P<:U}(spec::Spec{P}, algo::Reversed{$A}, tables::Multiple{$A}, data::Vector{$A}, remainder::$A)
+            n_tables = length(tables.tables)
+            for word::$A in data
+                tmp::$A = remainder $ convert($A, word)
+                remainder = zero($A)
+                @nexprs $n_tables t -> begin
+                    remainder $= tables.tables[t][(tmp >>> ($n_tables - t)*8) & 0xff + 1]
+                end
+            end
+            remainder
         end
     end
-    remainder
 end
 
 function extend{P<:U, A<:U}(spec::Spec{P}, algo::Reversed{A}, tables::Multiple{A}, data::Vector{Uint8}, remainder::A)
