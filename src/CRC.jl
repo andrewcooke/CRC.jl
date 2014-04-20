@@ -172,10 +172,6 @@ function pad{A<:U}(::Type{A}, width)
     8 * sizeof(A) - width
 end
 
-function pad{A<:U, D<:U}(::Type{A}, ::Type{D})
-    pad(A, 8*sizeof(D))
-end
-
 abstract Table
 
 immutable NoTable<:Table end
