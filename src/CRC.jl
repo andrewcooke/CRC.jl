@@ -337,12 +337,14 @@ function extend{P<:U, A<:U}(spec::Spec{P}, algo::Reversed{A}, tables::Single{A},
     remainder
 end
 
-# this special case short-circuits "all Uint8" avoiding a
-# self-recursive loop below
+# short-circuit "all Uint8" avoiding a self-recursive loop below
 function extend{P<:U}(spec::Spec{P}, algo::Reversed{Uint8}, tables::Multiple{Uint8}, data::Vector{Uint8}, remainder::Uint8)
     extend(spec, algo, Single(tables), data, remainder)
 end
 
+# generate code for processing a bunch of bytes in a single machine
+# word (currently reversed world only), using multiple tables.  stolen
+# from libz.
 for A in (Uint16, Uint32, Uint64, Uint128)
     n_tables = sizeof(A)
     @eval begin
