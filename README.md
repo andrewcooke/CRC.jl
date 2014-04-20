@@ -8,16 +8,18 @@ Redundancy Checksums (CRCs).
 
 * New algorithms can be easily added.
 
-* CRCs can be calculated for sequences (any iterable container) of
-  integers of any common size (from 8 bit bytes to 128 bit long long
-  words).
+* Calculation can be direct or via cached tables.
 
-* Calculation can be direct or via tables.
+* Speed is currently comparable to optimized C for "reversed world"
+  CRCs (eg when compared to the CRC32 zlib implementation) and
+  probably within a factor of 2 or 3 when using direct CRCs (it would
+  be good to have an optimized C implementation to test against -
+  please contact me if you know of one).
 
-* Table sizes (number of index bits) can be specified (default 8 bits).
-
-* Speed is currently about 2-4x *slower* than optimized C (eg when
-  compared to the CRC32 zlib implementation).
+* Only arrays of bytes are accepted as data (again, contact me if you
+  want soemthing else as it's certainly possible to handle arbitrary
+  sized sequences; previous versions did this, but it complicated the
+  code for little practical gain so I removed it).
 
 ## Examples
 
@@ -26,14 +28,14 @@ Redundancy Checksums (CRCs).
 ```
 julia> using CRC
 
-julia> crc(CRC_32, b"123456789")
+julia> crc(CRC_32)(b"123456789")
 0xcbf43926
 ```
 
 ### Use a Cached Table
 
 ```
-julia> c = crc(CRC_32, Uint8)
+julia> c = crc(CRC_32)
 (anonymous function)
 
 julia> @time c(b"123456789")
@@ -45,10 +47,10 @@ elapsed time: 6.9576e-5 seconds (1136 bytes allocated)
 0xcbf43926
 ```
 
-### Calculate Directly
+### Force Direct (Tableless) Calculation
 
 ```
-julia> crc(CRC_32, b"123456789", table=false)
+julia> crc(CRC_32, lookup=false)(b"123456789")
 0xcbf43926
 ```
 
@@ -60,10 +62,10 @@ catalogued as `width=7 poly=0x09 init=0x00 refin=false refout=false
 xorout=0x00 check=0x75 name="CRC-7"`
 
 ```
-julia> myCRC7 = Spec(7, 0x09, 0x00, false, false, 0x00, 0x75)
+julia> myCRC7 = spec(7, 0x09, 0x00, false, false, 0x00, 0x75)
 Spec{Uint8}(7,0x09,0x00,false,false,0x00,0x75)
 
-julia> @assert crc(myCRC7, TEST) == myCRC7.test
+julia> @assert crc(myCRC7)(TEST) == myCRC7.test
 ```
 
 Of course, this is already defined:
