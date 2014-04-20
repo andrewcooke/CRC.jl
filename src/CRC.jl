@@ -348,7 +348,8 @@ for A in (Uint16, Uint32, Uint64, Uint128)
     @eval begin
         function extend{P<:U}(spec::Spec{P}, algo::Reversed{$A}, tables::Multiple{$A}, data::Vector{$A}, remainder::$A)
             n_tables = length(tables.tables)
-            for word::$A in data
+            for i in 1:length(data)
+                @inbounds word::$A = data[i]
                 tmp::$A = remainder $ convert($A, word)
                 remainder = zero($A)
                 @nexprs $n_tables t -> begin
