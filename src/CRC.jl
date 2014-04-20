@@ -291,10 +291,14 @@ function make_tables{A<:U}(spec, algo, tables::Single{A})
     tables
 end
 
-function make_tables{A<:U}(spec, algo::Padded{A}, tables::Multiple{A})
+function make_tables{A<:U}(spec, algo, tables::Multiple{A})
     n_tables = sizeof(A)
     tables.tables = Vector{A}[Array(A, 256) for _ in 1:n_tables]
     fill_table(spec, algo, tables.tables[1])
+    chain(spec, algo, tables)
+end
+
+function chain{A<:U}(spec, algo::Padded{A}, tables::Multiple{A})
     for index in zero(Uint8):convert(Uint8, 255)
         remainder = tables.tables[1][index + 1]
         for t in 2:n_tables
@@ -305,10 +309,7 @@ function make_tables{A<:U}(spec, algo::Padded{A}, tables::Multiple{A})
     tables
 end
 
-function make_tables{A<:U}(spec, algo::Reflected{A}, tables::Multiple{A})
-    n_tables = sizeof(A)
-    tables.tables = Vector{A}[Array(A, 256) for _ in 1:n_tables]
-    fill_table(spec, algo, tables.tables[1])
+function chain{A<:U}(spec, algo::Reflected{A}, tables::Multiple{A})
     for index in zero(Uint8):convert(Uint8, 255)
         remainder = tables.tables[1][index + 1]
         for t in 2:n_tables

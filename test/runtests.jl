@@ -96,15 +96,15 @@ function time_libz()
     check = crc32(data)
     @assert ours(data) == check
 
-    @time crc32(data)   # 0.28
-    @time ours(data)    # 0.67
+    @time crc32(data)
+    @time ours(data)
 end
 
 function time_padded()
     ours = crc(CRC_64)
     data = rand(Uint8, 300_000_000)
     @assert ours(TEST) == CRC_64.test
-    @time ours(data)    # 
+    @time ours(data)    # 0.95
 end
 
 
