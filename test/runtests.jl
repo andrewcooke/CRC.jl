@@ -39,6 +39,18 @@ function test_crc(spec)
     println("ok")
 end
 
+function test_crc_new(spec)
+    print(spec)
+    @test crc_new(spec, lookup=false)(TEST) == spec.test
+    print(".")
+    result = crc_new(spec)(TEST)
+    if result != spec.test
+        println("false $(hex(result))")
+        @test result == spec.test
+    end
+    println("ok")
+end
+
 function test_crc_no_table()
     print("no table")
     for spec in ALL
@@ -109,11 +121,11 @@ end
 
 function tests()
     test_crc(CRC_3_ROHC)
-    test_crc(CRC_7_ROHC)
     test_crc(CRC_4_ITU)
+    test_crc(CRC_7_ROHC)
     test_crc(CRC_32)
     test_crc(CRC_7)
-    test_crc(CRC_8)
+    test_crc_new(CRC_8)
     test_crc(CRC_10)
 #    test_crc(CRC_8_CDMA2000)
 #    test_crc(CRC_5_EPC)

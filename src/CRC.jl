@@ -13,7 +13,7 @@
 
 module CRC
 
-export crc, make_tables, TEST, CRC_3_ROHC, CRC_4_ITU, CRC_5_EPC,
+export crc, crc_new, make_tables, TEST, CRC_3_ROHC, CRC_4_ITU, CRC_5_EPC,
        CRC_5_ITU, CRC_5_USB, CRC_6_CDMA2000_A, CRC_6_CDMA2000_B,
        CRC_6_DARC, CRC_6_ITU, CRC_7, CRC_7_ROHC, CRC_8,
        CRC_8_CDMA2000, CRC_8_DARC, CRC_8_DVB_S2, CRC_8_EBU,
@@ -383,6 +383,7 @@ function crc{P<:U}(spec::Spec{P}, data)
     finalize_remainder(extend(spec.poly, spec.width, spec.refin, spec.init, data, Vector{A}[]), spec.width, spec.refout, spec.xorout)
 end
 
+# flag switches implementations (true - new multi)
 function crc{P<:U, D<:U}(spec::Spec{P}, ::Type{D}, flag)
     A = (D == Uint8 && flag) ? fastest(P, D, Uint) : fastest(P, D)
     tables_d = make_tables(D, A, spec.width, spec.poly, spec.refin)
@@ -399,6 +400,102 @@ function crc{P<:U, D<:U}(spec::Spec{P}, ::Type{D}, flag)
         end
     end
     crc_local
+end
+
+
+abstract Table
+
+immutable NoTable<:Table end
+
+type Single{A<:U}<:Table 
+    table::Vector{A}
+    Single() = new()
+end
+
+type Multiple{A<:U}<:Table 
+    tables::Vector{Vector{A}}
+    Multiple() = new()
+end
+
+abstract Algorithm{A<:U}
+
+immutable Reversed{P<:U, A<:U}<:Algorithm
+end
+
+immutable Padded{A<:U}<:Algorithm{A}
+    pad_p::Int
+    poly::A
+    carry::A
+    pad_8::Int
+    init::A
+end
+
+function Padded{P<:U}(spec::Spec{P})
+    A = fastest(P, Uint8, Uint)
+    pad_p = pad(A, spec.width)
+    poly = convert(A, spec.poly) << pad_p
+    carry = one(A) << pad(A, 1)
+    pad_8 = pad(A, 8)
+    init = convert(A, spec.init) << pad_p
+    Padded(pad_p, poly, carry, pad_8, init)
+end
+
+function crc_new{P<:U}(spec::Spec{P}; lookup=true)
+    algo = spec.refin ? Reversed(spec) : Padded(spec)
+    crc_new(spec, algo; lookup=lookup)
+end
+
+function crc_new{P<:U, A<:U}(spec::Spec{P}, algo::Algorithm{A}; lookup=true)
+    if lookup
+        tables = spec.refin ? Multiple{A}() : Single{A}()
+        tables = make_tables(spec, algo, tables)
+    else
+        tables = NoTable()
+    end
+    return data -> finalize(spec, algo, 
+                            extend(spec, algo, tables, data, algo.init))
+end
+
+function make_tables{A<:U}(spec, algo::Padded{A}, tables::Single{A})
+    tables.table = Array(A, 256)
+    for index in zero(Uint8):convert(Uint8, 255)
+        remainder::A = convert(A, index) << algo.pad_8
+        for _ in 1:8
+            if remainder & algo.carry == algo.carry
+                remainder = (remainder << 1) $ algo.poly
+            else
+                remainder <<= 1
+            end
+        end
+        tables.table[index + 1] = remainder
+    end
+    tables
+end
+
+function finalize{P<:U, A<:U}(spec::Spec{P}, algo::Padded{A}, remainder::A)
+    convert(P, remainder >> algo.pad_p) $ spec.xorout
+end
+
+function extend{P<:U, A<:U}(spec::Spec{P}, algo::Padded{A}, tables::Single{A}, data, remainder::A)
+    for word::Uint8 in data
+        remainder::A = remainder $ (convert(A, word) << algo.pad_8)
+        remainder = (remainder << 8) $ tables.table[1 + remainder >>> algo.pad_8]
+    end
+    remainder
+end
+
+function extend{P<:U, A<:U}(spec::Spec{P}, algo::Padded{A}, tables::NoTable, data, remainder::A)
+    for word::Uint8 in data
+        remainder::A = remainder $ (convert(A, word) << algo.pad_8)
+        for _ in 1:8
+            if remainder & algo.carry == algo.carry
+                remainder = (remainder << 1) $ algo.poly
+            else
+                remainder <<= 1
+            end
+        end
+    end
+    remainder
 end
 
 end
