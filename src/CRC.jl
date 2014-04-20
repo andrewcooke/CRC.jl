@@ -278,43 +278,37 @@ function crc{P<:U, A<:U}(spec::Spec{P}, algo::Algorithm{A}; lookup=true)
 end
 
 
-# for direct (non-reflected) CRCs we currently use a single lookup
-# table (only) (we could, and probably should use multiple tables -
-# but it's a little more complex than reversed because you also need
-# to shift the accumulator around).
-function make_tables{A<:U}(spec, algo::Padded{A}, tables::Single{A})
-    tables.table = Array(A, 256)
+# the basic lookup table is just the remainder for each value
+function fill_table{A<:U}(spec, algo, table::Vector{A})
     for index in zero(Uint8):convert(Uint8, 255)
-        remainder::A = convert(A, index) << algo.pad_8
-        for _ in 1:8
-            if remainder & algo.carry == algo.carry
-                remainder = (remainder << 1) $ algo.poly
-            else
-                remainder <<= 1
-            end
+        table[index + 1] = extend(spec, algo, NoTable(), [index], zero(A))
+    end
+end
+
+function make_tables{A<:U}(spec, algo, tables::Single{A})
+    tables.table = Array(A, 256)
+    fill_table(spec, algo, tables.table)
+    tables
+end
+
+function make_tables{A<:U}(spec, algo::Padded{A}, tables::Multiple{A})
+    n_tables = sizeof(A)
+    tables.tables = Vector{A}[Array(A, 256) for _ in 1:n_tables]
+    fill_table(spec, algo, tables.tables[1])
+    for index in zero(Uint8):convert(Uint8, 255)
+        remainder = tables.tables[1][index + 1]
+        for t in 2:n_tables
+            remainder = (remainder << 8) $ tables.tables[1][1 + ((remainder >>> algo.pad_8) & 0xff)]
+            tables.tables[t][index + 1] = remainder
         end
-        tables.table[index + 1] = remainder
     end
     tables
 end
 
-
-# for reflected CRCs we used multiple lookup tables (together with
-# bunched loading).
 function make_tables{A<:U}(spec, algo::Reflected{A}, tables::Multiple{A})
     n_tables = sizeof(A)
     tables.tables = Vector{A}[Array(A, 256) for _ in 1:n_tables]
-    for index in zero(Uint8):convert(Uint8, 255)
-        remainder::A = convert(A, index)
-        for _ in 1:8
-            if remainder & one(A) == one(A)
-                remainder = (remainder >>> 1) $ algo.poly
-            else
-               remainder >>>= 1
-            end
-        end
-        tables.tables[1][index + 1] = remainder
-    end
+    fill_table(spec, algo, tables.tables[1])
     for index in zero(Uint8):convert(Uint8, 255)
         remainder = tables.tables[1][index + 1]
         for t in 2:n_tables
@@ -324,6 +318,7 @@ function make_tables{A<:U}(spec, algo::Reflected{A}, tables::Multiple{A})
     end
     tables
 end
+
 
 
 # calculations assume that the remainder is either reflected or
