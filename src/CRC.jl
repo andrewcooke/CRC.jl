@@ -348,13 +348,89 @@ for A in (Uint16, Uint32, Uint64, Uint128)
     @eval begin
         function extend{P<:U}(spec::Spec{P}, algo::Reversed{$A}, tables::Multiple{$A}, data::Vector{$A}, remainder::$A)
             n_tables = length(tables.tables)
-            for i in 1:length(data)
-                @inbounds word::$A = data[i]
-                tmp::$A = remainder $ convert($A, word)
+            word::$A, tmp::$A = zero($A), zero($A)
+            i = 1
+            while true
+                if i > length(data)
+                    break
+                end
+                @inbounds word = data[i]
+                tmp = remainder $ convert($A, word)
                 remainder = zero($A)
                 @nexprs $n_tables t -> begin
                     remainder $= tables.tables[t][(tmp >>> ($n_tables - t)*8) & 0xff + 1]
                 end
+                i += 1
+                if i > length(data)
+                    break
+                end
+                @inbounds word = data[i]
+                tmp = remainder $ convert($A, word)
+                remainder = zero($A)
+                @nexprs $n_tables t -> begin
+                    remainder $= tables.tables[t][(tmp >>> ($n_tables - t)*8) & 0xff + 1]
+                end
+                i += 1
+                if i > length(data)
+                    break
+                end
+                @inbounds word = data[i]
+                tmp = remainder $ convert($A, word)
+                remainder = zero($A)
+                @nexprs $n_tables t -> begin
+                    remainder $= tables.tables[t][(tmp >>> ($n_tables - t)*8) & 0xff + 1]
+                end
+                i += 1
+                if i > length(data)
+                    break
+                end
+                @inbounds word = data[i]
+                tmp = remainder $ convert($A, word)
+                remainder = zero($A)
+                @nexprs $n_tables t -> begin
+                    remainder $= tables.tables[t][(tmp >>> ($n_tables - t)*8) & 0xff + 1]
+                end
+                i += 1
+                if i > length(data)
+                    break
+                end
+                @inbounds word = data[i]
+                tmp = remainder $ convert($A, word)
+                remainder = zero($A)
+                @nexprs $n_tables t -> begin
+                    remainder $= tables.tables[t][(tmp >>> ($n_tables - t)*8) & 0xff + 1]
+                end
+                i += 1
+                if i > length(data)
+                    break
+                end
+                @inbounds word = data[i]
+                tmp = remainder $ convert($A, word)
+                remainder = zero($A)
+                @nexprs $n_tables t -> begin
+                    remainder $= tables.tables[t][(tmp >>> ($n_tables - t)*8) & 0xff + 1]
+                end
+                i += 1
+                if i > length(data)
+                    break
+                end
+                @inbounds word = data[i]
+                tmp = remainder $ convert($A, word)
+                remainder = zero($A)
+                @nexprs $n_tables t -> begin
+                    remainder $= tables.tables[t][(tmp >>> ($n_tables - t)*8) & 0xff + 1]
+                end
+                i += 1
+                if i > length(data)
+                    break
+                end
+                @inbounds word = data[i]
+                tmp = remainder $ convert($A, word)
+                remainder = zero($A)
+                @nexprs $n_tables t -> begin
+                    remainder $= tables.tables[t][(tmp >>> ($n_tables - t)*8) & 0xff + 1]
+                end
+                i += 1
             end
             remainder
         end
