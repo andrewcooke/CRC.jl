@@ -356,8 +356,7 @@ for A in (Uint16, Uint32, Uint64, Uint128)
                         break
                     end
                     @inbounds word = data[i]
-                    tmp = remainder $ convert($A, word)
-                    remainder = zero($A)
+                    tmp, remainder = remainder $ convert($A, word), zero($A)
                     @nexprs $n_tables t -> begin  # unroll table access
                         remainder $= tables.tables[t][(tmp >>> ($n_tables - t)*8) & 0xff + 1]
                     end
