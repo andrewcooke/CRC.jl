@@ -28,22 +28,10 @@ Redundancy Checksums (CRCs).
 ```
 julia> using CRC
 
-julia> crc(CRC_32)(b"123456789")
-0xcbf43926
-```
-
-### Use a Cached Table
-
-```
 julia> c = crc(CRC_32)
 (anonymous function)
 
-julia> @time c(b"123456789")
-elapsed time: 0.091254649 seconds (5219272 bytes allocated)
-0xcbf43926
-
-julia> @time c(b"123456789")
-elapsed time: 6.9576e-5 seconds (1136 bytes allocated)
+julia> c(b"123456789")
 0xcbf43926
 ```
 
