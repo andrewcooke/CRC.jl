@@ -31,7 +31,7 @@ export crc, make_tables, TEST, CRC_3_ROHC, CRC_4_ITU, CRC_5_EPC,
        CRC_32_JAMCRC, CRC_32_XFER, CRC_40_GSM, CRC_64, CRC_64_WE,
        CRC_64_XZ, CRC_82_DARC
 
-import Cartesian: @nexprs
+import Base.Cartesian: @nexprs
 
 typealias U Unsigned
 
@@ -351,86 +351,18 @@ for A in (Uint16, Uint32, Uint64, Uint128)
             word::$A, tmp::$A = zero($A), zero($A)
             i = 1
             while true
-                if i > length(data)
-                    break
+                @nexprs 8 _ -> begin
+                    if i > length(data)
+                        break
+                    end
+                    @inbounds word = data[i]
+                    tmp = remainder $ convert($A, word)
+                    remainder = zero($A)
+                    @nexprs $n_tables t -> begin
+                        remainder $= tables.tables[t][(tmp >>> ($n_tables - t)*8) & 0xff + 1]
+                    end
+                    i += 1
                 end
-                @inbounds word = data[i]
-                tmp = remainder $ convert($A, word)
-                remainder = zero($A)
-                @nexprs $n_tables t -> begin
-                    remainder $= tables.tables[t][(tmp >>> ($n_tables - t)*8) & 0xff + 1]
-                end
-                i += 1
-                if i > length(data)
-                    break
-                end
-                @inbounds word = data[i]
-                tmp = remainder $ convert($A, word)
-                remainder = zero($A)
-                @nexprs $n_tables t -> begin
-                    remainder $= tables.tables[t][(tmp >>> ($n_tables - t)*8) & 0xff + 1]
-                end
-                i += 1
-                if i > length(data)
-                    break
-                end
-                @inbounds word = data[i]
-                tmp = remainder $ convert($A, word)
-                remainder = zero($A)
-                @nexprs $n_tables t -> begin
-                    remainder $= tables.tables[t][(tmp >>> ($n_tables - t)*8) & 0xff + 1]
-                end
-                i += 1
-                if i > length(data)
-                    break
-                end
-                @inbounds word = data[i]
-                tmp = remainder $ convert($A, word)
-                remainder = zero($A)
-                @nexprs $n_tables t -> begin
-                    remainder $= tables.tables[t][(tmp >>> ($n_tables - t)*8) & 0xff + 1]
-                end
-                i += 1
-                if i > length(data)
-                    break
-                end
-                @inbounds word = data[i]
-                tmp = remainder $ convert($A, word)
-                remainder = zero($A)
-                @nexprs $n_tables t -> begin
-                    remainder $= tables.tables[t][(tmp >>> ($n_tables - t)*8) & 0xff + 1]
-                end
-                i += 1
-                if i > length(data)
-                    break
-                end
-                @inbounds word = data[i]
-                tmp = remainder $ convert($A, word)
-                remainder = zero($A)
-                @nexprs $n_tables t -> begin
-                    remainder $= tables.tables[t][(tmp >>> ($n_tables - t)*8) & 0xff + 1]
-                end
-                i += 1
-                if i > length(data)
-                    break
-                end
-                @inbounds word = data[i]
-                tmp = remainder $ convert($A, word)
-                remainder = zero($A)
-                @nexprs $n_tables t -> begin
-                    remainder $= tables.tables[t][(tmp >>> ($n_tables - t)*8) & 0xff + 1]
-                end
-                i += 1
-                if i > length(data)
-                    break
-                end
-                @inbounds word = data[i]
-                tmp = remainder $ convert($A, word)
-                remainder = zero($A)
-                @nexprs $n_tables t -> begin
-                    remainder $= tables.tables[t][(tmp >>> ($n_tables - t)*8) & 0xff + 1]
-                end
-                i += 1
             end
             remainder
         end
