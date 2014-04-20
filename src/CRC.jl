@@ -339,7 +339,7 @@ function finalize{P<:U, A<:U}(spec::Spec{P}, algo::Reflected{A}, remainder::A)
 end
 
 
-# all the routines below calculate a new valueof remainder for the
+# all the routines below calculate a new value of remainder for the
 # data given (along with the algorithm type, available lookup tables,
 # etc).
 
