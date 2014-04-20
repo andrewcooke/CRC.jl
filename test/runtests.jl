@@ -119,21 +119,51 @@ function test_all()
     end
 end
 
+function test_all_new()
+    print("all")
+    bad = Set()
+    for _ in 1:10
+        data = rand(Uint8, rand(100:200))
+#        data = rand(Uint8, rand(10:20))
+        for spec in ALL
+            if ! in(spec, bad)
+#                r1 = crc(spec, data)
+                r1 = crc_new(spec, lookup=false)(data)
+                r2 = crc_new(spec)(data)
+                if r1 != r2
+                    push!(bad, spec)
+                end
+                print(".")
+            end
+        end
+    end
+    if length(bad) > 0
+        println("failed:")
+        for spec in bad
+            println(spec)
+        end
+        @test false
+    else
+        println("ok")
+    end
+end
+
 function tests()
-    test_crc(CRC_3_ROHC)
-    test_crc(CRC_4_ITU)
-    test_crc(CRC_7_ROHC)
-    test_crc(CRC_32)
-    test_crc(CRC_7)
+    test_crc_new(CRC_3_ROHC)
+    test_crc_new(CRC_4_ITU)
+    test_crc_new(CRC_7_ROHC)
+    test_crc_new(CRC_32)
+    test_crc_new(CRC_7)
     test_crc_new(CRC_8)
-    test_crc(CRC_10)
+    test_crc_new(CRC_10)
 #    test_crc(CRC_8_CDMA2000)
 #    test_crc(CRC_5_EPC)
-    test_crc_no_table()
-    test_tables()
-    test_crc_table(false)
+#    test_crc_no_table()
+#    test_tables()
+#    test_crc_table(false)
 #    test_crc_table(true)
-    test_all()
+    test_all_new()
+#    test_all()
 end
 
 tests()

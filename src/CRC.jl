@@ -407,19 +407,34 @@ abstract Table
 
 immutable NoTable<:Table end
 
-type Single{A<:U}<:Table 
-    table::Vector{A}
-    Single() = new()
-end
-
 type Multiple{A<:U}<:Table 
     tables::Vector{Vector{A}}
     Multiple() = new()
 end
 
+type Single{A<:U}<:Table 
+    table::Vector{A}
+    Single() = new()
+end
+
+function Single{A<:U}(tables::Multiple{A})
+    table = Single{A}()
+    table.table = tables.tables[1]
+    table
+end
+
 abstract Algorithm{A<:U}
 
-immutable Reversed{P<:U, A<:U}<:Algorithm
+immutable Reversed{A<:U}<:Algorithm{A}
+    poly::A
+    init::A
+end
+
+function Reversed{P<:U}(spec::Spec{P})
+    A = fastest(P, Uint8)
+    poly = reflect(spec.width, convert(A, spec.poly))
+    init = reflect(spec.width, convert(A, spec.init))
+    Reversed(poly, init)
 end
 
 immutable Padded{A<:U}<:Algorithm{A}
@@ -431,7 +446,7 @@ immutable Padded{A<:U}<:Algorithm{A}
 end
 
 function Padded{P<:U}(spec::Spec{P})
-    A = fastest(P, Uint8, Uint)
+    A = fastest(P, Uint8)
     pad_p = pad(A, spec.width)
     poly = convert(A, spec.poly) << pad_p
     carry = one(A) << pad(A, 1)
@@ -472,19 +487,42 @@ function make_tables{A<:U}(spec, algo::Padded{A}, tables::Single{A})
     tables
 end
 
-function finalize{P<:U, A<:U}(spec::Spec{P}, algo::Padded{A}, remainder::A)
-    convert(P, remainder >> algo.pad_p) $ spec.xorout
-end
-
-function extend{P<:U, A<:U}(spec::Spec{P}, algo::Padded{A}, tables::Single{A}, data, remainder::A)
-    for word::Uint8 in data
-        remainder::A = remainder $ (convert(A, word) << algo.pad_8)
-        remainder = (remainder << 8) $ tables.table[1 + remainder >>> algo.pad_8]
+function make_tables{A<:U}(spec, algo::Reversed{A}, tables::Multiple{A})
+    n_tables = sizeof(A)
+    tables.tables = Vector{A}[Array(A, 256) for _ in 1:n_tables]
+    for index in zero(Uint8):convert(Uint8, 255)
+        remainder::A = convert(A, index)
+        for _ in 1:8
+            if remainder & one(A) == one(A)
+                remainder = (remainder >>> 1) $ algo.poly
+            else
+               remainder >>>= 1
+            end
+        end
+        tables.tables[1][index + 1] = remainder
     end
-    remainder
+    for index in zero(Uint8):convert(Uint8, 255)
+        remainder = tables.tables[1][index + 1]
+        for t in 2:n_tables
+            remainder = (remainder >>> 8) $ tables.tables[1][1 + (remainder & 0xff)]
+            tables.tables[t][index + 1] = remainder
+        end
+    end
+    tables
 end
 
-function extend{P<:U, A<:U}(spec::Spec{P}, algo::Padded{A}, tables::NoTable, data, remainder::A)
+function finalize{P<:U, A<:U}(spec::Spec{P}, algo::Padded{A}, remainder::A)
+    remainder = convert(P, remainder >> algo.pad_p)
+    remainder = spec.refout ? reflect(spec.width, remainder) : remainder
+    remainder $ spec.xorout
+end
+
+function finalize{P<:U, A<:U}(spec::Spec{P}, algo::Reversed{A}, remainder::A)
+    remainder = spec.refout ? remainder : reflect(spec.width, remainder)
+    convert(P, remainder) $ spec.xorout
+end
+
+function extend{P<:U, A<:U}(spec::Spec{P}, algo::Padded{A}, tables::NoTable, data::Vector{Uint8}, remainder::A)
     for word::Uint8 in data
         remainder::A = remainder $ (convert(A, word) << algo.pad_8)
         for _ in 1:8
@@ -496,6 +534,61 @@ function extend{P<:U, A<:U}(spec::Spec{P}, algo::Padded{A}, tables::NoTable, dat
         end
     end
     remainder
+end
+
+function extend{P<:U, A<:U}(spec::Spec{P}, algo::Padded{A}, tables::Single{A}, data::Vector{Uint8}, remainder::A)
+    for word::Uint8 in data
+        remainder::A = remainder $ (convert(A, word) << algo.pad_8)
+        remainder = (remainder << 8) $ tables.table[1 + remainder >>> algo.pad_8]
+    end
+    remainder
+end
+
+function extend{P<:U, A<:U}(spec::Spec{P}, algo::Reversed{A}, tables::NoTable, data::Vector{Uint8}, remainder::A)
+    for word::Uint8 in data
+        remainder::A = remainder $ convert(A, word)
+        for _ in 1:8
+            if remainder & one(A) == one(A)
+                remainder = (remainder >>> 1) $ algo.poly
+            else
+                remainder >>>= 1
+            end
+        end
+    end
+    remainder
+end
+
+function extend{P<:U, A<:U}(spec::Spec{P}, algo::Reversed{A}, tables::Single{A}, data::Vector{Uint8}, remainder::A)
+    for word::Uint8 in data
+        remainder::A = remainder $ (convert(A, word))
+        remainder = (remainder >>> 8) $ tables.table[1 + remainder & 0xff]
+    end
+    remainder
+end
+
+# this special case short-circuits "all Uint8" avoiding a
+# self-recusrive loop below
+function extend{P<:U}(spec::Spec{P}, algo::Reversed{Uint8}, tables::Multiple{Uint8}, data::Vector{Uint8}, remainder::Uint8)
+    extend(spec, algo, Single(tables), data, remainder)
+end
+
+function extend{P<:U, A<:U}(spec::Spec{P}, algo::Reversed{A}, tables::Multiple{A}, data::Vector{A}, remainder::A)
+    n_tables = length(tables.tables)
+    for word::A in data
+        tmp::A = remainder $ convert(A, word)
+        remainder = zero(A)
+        # TODO - unroll statically
+        for t in 1:n_tables
+            remainder $= tables.tables[t][(tmp >>> (n_tables - t)*8) & 0xff + 1]
+        end
+    end
+    remainder
+end
+
+function extend{P<:U, A<:U}(spec::Spec{P}, algo::Reversed{A}, tables::Multiple{A}, data::Vector{Uint8}, remainder::A)
+    tail = length(data) % sizeof(A)
+    remainder = extend(spec, algo, tables, reinterpret(A, data), remainder)
+    extend(spec, algo, Single(tables), data[end-tail+1:end], remainder)
 end
 
 end
