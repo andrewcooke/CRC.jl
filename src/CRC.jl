@@ -278,7 +278,7 @@ function crc{P<:U, A<:U}(spec::Spec{P}, algo::Algorithm{A}; lookup=true)
 end
 
 
-# for direct (non-reflected) CRCs we currebtly use a single lookup
+# for direct (non-reflected) CRCs we currently use a single lookup
 # table (only).
 function make_tables{A<:U}(spec, algo::Padded{A}, tables::Single{A})
     tables.table = Array(A, 256)
@@ -358,7 +358,9 @@ function extend{P<:U, A<:U}(spec::Spec{P}, algo::Padded{A}, tables::NoTable, dat
 end
 
 function extend{P<:U, A<:U}(spec::Spec{P}, algo::Padded{A}, tables::Single{A}, data::Vector{Uint8}, remainder::A)
-    for word::Uint8 in data
+    # unrolling this loop didn't help any
+    for i in 1:length(data)
+        @inbounds word::Uint8 = data[i]
         remainder::A = remainder $ (convert(A, word) << algo.pad_8)
         remainder = (remainder << 8) $ tables.table[1 + remainder >>> algo.pad_8]
     end

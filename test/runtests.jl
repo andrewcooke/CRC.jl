@@ -100,7 +100,15 @@ function time_libz()
     @time ours(data)    # 0.67
 end
 
+function time_padded()
+    ours = crc(CRC_64)
+    data = rand(Uint8, 300_000_000)
+    @assert ours(TEST) == CRC_64.test
+    @time ours(data)    # 
+end
+
 
 srand(0)  # repeatable results
 
-time_libz()
+#time_libz()
+time_padded()
