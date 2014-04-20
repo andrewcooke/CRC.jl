@@ -110,5 +110,5 @@ end
 
 srand(0)  # repeatable results
 
-#time_libz()
+time_libz()
 time_padded()
