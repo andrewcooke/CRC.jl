@@ -267,11 +267,7 @@ end
 # return a function that evaluates the CRC against the cached lookup
 # tables (if used).
 function crc{P<:U, A<:U}(spec::Spec{P}, algo::Algorithm{A}; lookup=true)
-    if lookup
-        tables = make_tables(spec, algo, Multiple{A}())
-    else
-        tables = NoTable()
-    end
+    tables = lookup ? make_tables(spec, algo, Multiple{A}()) : NoTable()
     return data -> finalize(spec, algo, 
                             extend(spec, algo, tables, data, algo.init))
 end
