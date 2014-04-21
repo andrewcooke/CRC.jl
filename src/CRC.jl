@@ -384,7 +384,7 @@ for A in (Uint16, Uint32, Uint64, Uint128)
 end
 
 function extend{A<:U}(algo::Reflected{A}, tables::NoTables, data::Vector{Uint8}, remainder::A)
-    for i in length(data)
+    for i in 1:length(data)
         @inbounds word::Uint8 = data[i]
         remainder::A = remainder $ convert(A, word)
         for _ in 1:8
