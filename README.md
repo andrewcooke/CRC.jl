@@ -31,6 +31,11 @@ julia> c(b"123456789")
 0xcbf43926
 ```
 
+The function `crc()` constructs a lookup table, which is cached in the
+returned function (here, `c()`).  Re-using `c()` to calculate a series
+of CRCs is therefore more efficient than starting at `crc()` each
+time.
+
 ### Force Direct (Tableless) Calculation
 
 ```
