@@ -272,7 +272,7 @@ function crc{P<:U, A<:U}(spec::Spec{P}, algo::Algorithm{A}; tables=Multiple)
                                    data, algo.init))
 end
 
-function make_tables{A<:U}(algo, tables::NoTables{A})
+function make_tables(algo, tables::NoTables)
     tables
 end
 
