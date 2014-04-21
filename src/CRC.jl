@@ -348,7 +348,6 @@ function extend{A<:U}(algo::Padded{A}, tables::NoTables, data::Vector{Uint8}, re
 end
 
 function extend{A<:U}(algo::Padded{A}, tables::Single{A}, data::Vector{Uint8}, remainder::A)
-    # unrolling this loop didn't help any
     for i in 1:length(data)
         @inbounds word::Uint8 = data[i]
         remainder::A = remainder $ (convert(A, word) << algo.pad_8)
@@ -385,7 +384,8 @@ for A in (Uint16, Uint32, Uint64, Uint128)
 end
 
 function extend{A<:U}(algo::Reflected{A}, tables::NoTables, data::Vector{Uint8}, remainder::A)
-    for word::Uint8 in data
+    for i in length(data)
+        @inbounds word::Uint8 = data[i]
         remainder::A = remainder $ convert(A, word)
         for _ in 1:8
             if remainder & one(A) == one(A)
