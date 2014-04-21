@@ -247,7 +247,7 @@ immutable Padded{A<:U}<:Algorithm{A}
 end
 
 function Padded{P<:U}(spec::Spec{P})
-    A = fastest(P, Uint8, Uint)
+    A = fastest(P, Uint8, Uint)  # Uint8 for the data, Uint for multiple tables
     pad_p = pad(A, spec.width)
     poly = convert(A, spec.poly) << pad_p
     carry = one(A) << pad(A, 1)
@@ -268,9 +268,7 @@ end
 # tables (if used).
 function crc{P<:U, A<:U}(spec::Spec{P}, algo::Algorithm{A}; lookup=true)
     if lookup
-#        tables = spec.refin ? Multiple{A}() : Single{A}()
-        tables = Multiple{A}()
-        tables = make_tables(spec, algo, tables)
+        tables = make_tables(spec, algo, Multiple{A}())
     else
         tables = NoTable()
     end
