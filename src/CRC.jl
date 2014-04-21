@@ -361,6 +361,15 @@ function extend{P<:U, A<:U}(spec::Spec{P}, algo::Padded{A}, tables::Single{A}, d
     remainder
 end
 
+function extend{P<:U, A<:U}(spec::Spec{P}, algo::Padded{A}, tables::Multiple{A}, data::Vector{A}, remainder::A)
+    for i in 1:length(data)
+        @inbounds word::Uint8 = data[i]
+        remainder::A = remainder $ (convert(A, word) << algo.pad_8)
+        remainder = (remainder << 8) $ tables.table[1 + remainder >>> algo.pad_8]
+    end
+    remainder
+end
+
 function extend{P<:U, A<:U}(spec::Spec{P}, algo::Reflected{A}, tables::NoTable, data::Vector{Uint8}, remainder::A)
     for word::Uint8 in data
         remainder::A = remainder $ convert(A, word)
@@ -381,11 +390,6 @@ function extend{P<:U, A<:U}(spec::Spec{P}, algo::Reflected{A}, tables::Single{A}
         remainder = (remainder >>> 8) $ tables.table[1 + remainder & 0xff]
     end
     remainder
-end
-
-# short-circuit "all Uint8" avoiding a self-recursive loop below
-function extend{P<:U}(spec::Spec{P}, algo::Reflected{Uint8}, tables::Multiple{Uint8}, data::Vector{Uint8}, remainder::Uint8)
-    extend(spec, algo, Single(tables), data, remainder)
 end
 
 # generate code for processing a bunch of bytes in a single machine
@@ -415,7 +419,12 @@ for A in (Uint16, Uint32, Uint64, Uint128)
     end
 end
 
-function extend{P<:U, A<:U}(spec::Spec{P}, algo::Reflected{A}, tables::Multiple{A}, data::Vector{Uint8}, remainder::A)
+# short-circuit "all Uint8" avoiding a self-recursive loop below
+function extend{P<:U}(spec::Spec{P}, algo::Algorithm{Uint8}, tables::Multiple{Uint8}, data::Vector{Uint8}, remainder::Uint8)
+    extend(spec, algo, Single(tables), data, remainder)
+end
+
+function extend{P<:U, A<:U}(spec::Spec{P}, algo::Algoritm{A}, tables::Multiple{A}, data::Vector{Uint8}, remainder::A)
     # this is "clever" - we alias the array of bytes to native machine
     # words and then process those, which typically (64 bits) loads 8
     # bytes at a time.
