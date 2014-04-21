@@ -247,7 +247,7 @@ immutable Padded{A<:U}<:Algorithm{A}
 end
 
 function Padded{P<:U}(spec::Spec{P})
-    A = fastest(P, Uint8)
+    A = fastest(P, Uint8, Uint)
     pad_p = pad(A, spec.width)
     poly = convert(A, spec.poly) << pad_p
     carry = one(A) << pad(A, 1)
@@ -268,7 +268,8 @@ end
 # tables (if used).
 function crc{P<:U, A<:U}(spec::Spec{P}, algo::Algorithm{A}; lookup=true)
     if lookup
-        tables = spec.refin ? Multiple{A}() : Single{A}()
+#        tables = spec.refin ? Multiple{A}() : Single{A}()
+        tables = Multiple{A}()
         tables = make_tables(spec, algo, tables)
     else
         tables = NoTable()
@@ -361,13 +362,29 @@ function extend{P<:U, A<:U}(spec::Spec{P}, algo::Padded{A}, tables::Single{A}, d
     remainder
 end
 
-function extend{P<:U, A<:U}(spec::Spec{P}, algo::Padded{A}, tables::Multiple{A}, data::Vector{A}, remainder::A)
-    for i in 1:length(data)
-        @inbounds word::Uint8 = data[i]
-        remainder::A = remainder $ (convert(A, word) << algo.pad_8)
-        remainder = (remainder << 8) $ tables.table[1 + remainder >>> algo.pad_8]
+
+for A in (Uint16, Uint32, Uint64, Uint128)
+    n_tables = sizeof(A)
+    @eval begin
+        function extend{P<:U}(spec::Spec{P}, algo::Padded{$A}, tables::Multiple{$A}, data::Vector{$A}, remainder::$A)
+            word::$A, tmp::$A, remainder::$A = zero($A), zero($A), remainder
+            i = 1
+            while true
+                @nexprs 8 _ -> begin  # unroll inner loop 8 times
+                    if i > length(data)
+                        break
+                    end
+                    @inbounds word = data[i]
+                    tmp, remainder = remainder, zero($A)
+                    @nexprs $n_tables t -> begin  # unroll table access
+                        remainder $= tables.tables[t][((word >>> ($n_tables - t)*8) $ (tmp >>> (t-1)*8)) & 0xff + 1]
+                    end
+                    i += 1
+                end
+            end
+            remainder
+        end
     end
-    remainder
 end
 
 function extend{P<:U, A<:U}(spec::Spec{P}, algo::Reflected{A}, tables::NoTable, data::Vector{Uint8}, remainder::A)
@@ -393,8 +410,7 @@ function extend{P<:U, A<:U}(spec::Spec{P}, algo::Reflected{A}, tables::Single{A}
 end
 
 # generate code for processing a bunch of bytes in a single machine
-# word (currently reversed world only), using multiple tables.  stolen
-# from libz.
+# word, using multiple tables.  stolen from libz.
 for A in (Uint16, Uint32, Uint64, Uint128)
     n_tables = sizeof(A)
     @eval begin
@@ -407,7 +423,7 @@ for A in (Uint16, Uint32, Uint64, Uint128)
                         break
                     end
                     @inbounds word = data[i]
-                    tmp, remainder = remainder $ convert($A, word), zero($A)
+                    tmp, remainder = remainder $ word, zero($A)
                     @nexprs $n_tables t -> begin  # unroll table access
                         remainder $= tables.tables[t][(tmp >>> ($n_tables - t)*8) & 0xff + 1]
                     end
@@ -424,7 +440,7 @@ function extend{P<:U}(spec::Spec{P}, algo::Algorithm{Uint8}, tables::Multiple{Ui
     extend(spec, algo, Single(tables), data, remainder)
 end
 
-function extend{P<:U, A<:U}(spec::Spec{P}, algo::Algoritm{A}, tables::Multiple{A}, data::Vector{Uint8}, remainder::A)
+function extend{P<:U, A<:U}(spec::Spec{P}, algo::Algorithm{A}, tables::Multiple{A}, data::Vector{Uint8}, remainder::A)
     # this is "clever" - we alias the array of bytes to native machine
     # words and then process those, which typically (64 bits) loads 8
     # bytes at a time.
