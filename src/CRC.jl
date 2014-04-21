@@ -356,7 +356,6 @@ function extend{P<:U, A<:U}(spec::Spec{P}, algo::Padded{A}, tables::Single{A}, d
     remainder
 end
 
-
 for A in (Uint16, Uint32, Uint64, Uint128)
     n_tables = sizeof(A)
     @eval begin
