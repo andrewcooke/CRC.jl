@@ -376,7 +376,10 @@ for A in (Uint16, Uint32, Uint64, Uint128)
                     end
                     @inbounds word = data[i]
                     tmp, remainder = remainder, zero($A)
-                    @nexprs $n_tables t -> begin  # unroll table access
+                    @nexprs $n_tables t -> begin  # unroll table
+                        # access similar to reflected but we need to
+                        # handle little-endian bytes which turn out
+                        # wrong for this case
                         remainder $= tables.tables[t][((word >>> ($n_tables - t)*8) $ (tmp >>> (t-1)*8)) & 0xff + 1]
                     end
                     i += 1
