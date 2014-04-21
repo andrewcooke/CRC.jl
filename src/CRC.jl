@@ -333,6 +333,8 @@ end
 # data given (along with the algorithm type, available lookup tables,
 # etc).
 
+const UNROLL = 8  # only get small improvements past this
+
 function extend{A<:U}(algo::Padded{A}, tables::NoTables, data::Vector{Uint8}, remainder::A)
     for word::Uint8 in data
         remainder::A = remainder $ (convert(A, word) << algo.pad_8)
@@ -363,7 +365,7 @@ for A in (Uint16, Uint32, Uint64, Uint128)
             word::$A, tmp::$A, remainder::$A = zero($A), zero($A), remainder
             i = 1
             while true
-                @nexprs 8 _ -> begin  # unroll inner loop 8 times
+                @nexprs $UNROLL _ -> begin  # unroll inner loop
                     if i > length(data)
                         break
                     end
@@ -415,7 +417,7 @@ for A in (Uint16, Uint32, Uint64, Uint128)
             word::$A, tmp::$A, remainder::$A = zero($A), zero($A), remainder
             i = 1
             while true
-                @nexprs 8 _ -> begin  # unroll inner loop 8 times
+                @nexprs $UNROLL _ -> begin  # unroll inner loop
                     if i > length(data)
                         break
                     end
