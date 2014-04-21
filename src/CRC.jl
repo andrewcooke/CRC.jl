@@ -278,13 +278,6 @@ function crc{P<:U, A<:U}(spec::Spec{P}, algo::Algorithm{A}; lookup=true)
 end
 
 
-# the basic lookup table is just the remainder for each value
-function fill_table{A<:U}(spec, algo, table::Vector{A})
-    for index in zero(Uint8):convert(Uint8, 255)
-        table[index + 1] = extend(spec, algo, NoTable(), [index], zero(A))
-    end
-end
-
 function make_tables{A<:U}(spec, algo, tables::Single{A})
     tables.table = Array(A, 256)
     fill_table(spec, algo, tables.table)
@@ -292,32 +285,31 @@ function make_tables{A<:U}(spec, algo, tables::Single{A})
 end
 
 function make_tables{A<:U}(spec, algo, tables::Multiple{A})
-    n_tables = sizeof(A)
-    tables.tables = Vector{A}[Array(A, 256) for _ in 1:n_tables]
+    tables.tables = Vector{A}[Array(A, 256) for _ in 1:sizeof(A)]
     fill_table(spec, algo, tables.tables[1])
-    chain(spec, algo, tables)
-end
-
-function chain{A<:U}(spec, algo::Padded{A}, tables::Multiple{A})
     for index in zero(Uint8):convert(Uint8, 255)
         remainder = tables.tables[1][index + 1]
-        for t in 2:n_tables
-            remainder = (remainder << 8) $ tables.tables[1][1 + ((remainder >>> algo.pad_8) & 0xff)]
+        for t in 2:sizeof(A)
+            remainder = chain(spec, algo, tables.tables[1], remainder)
             tables.tables[t][index + 1] = remainder
         end
     end
     tables
 end
 
-function chain{A<:U}(spec, algo::Reflected{A}, tables::Multiple{A})
+# the basic lookup table is just the remainder for each value
+function fill_table{A<:U}(spec, algo, table::Vector{A})
     for index in zero(Uint8):convert(Uint8, 255)
-        remainder = tables.tables[1][index + 1]
-        for t in 2:n_tables
-            remainder = (remainder >>> 8) $ tables.tables[1][1 + (remainder & 0xff)]
-            tables.tables[t][index + 1] = remainder
-        end
+        table[index + 1] = extend(spec, algo, NoTable(), [index], zero(A))
     end
-    tables
+end
+
+function chain{A<:U}(spec, algo::Padded{A}, table::Vector{A}, remainder::A)
+    (remainder << 8) $ table[1 + ((remainder >>> algo.pad_8) & 0xff)]
+end
+
+function chain{A<:U}(spec, algo::Reflected{A}, table::Vector{A}, remainder::A)
+    (remainder >>> 8) $ table[1 + (remainder & 0xff)]
 end
 
 
