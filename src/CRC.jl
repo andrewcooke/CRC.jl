@@ -311,7 +311,6 @@ function chain{A<:U}(spec, algo::Reflected{A}, table::Vector{A}, remainder::A)
 end
 
 
-
 # calculations assume that the remainder is either reflected or
 # padded; these functions correct for this to return the final result.
 
