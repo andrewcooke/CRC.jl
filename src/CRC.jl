@@ -257,13 +257,13 @@ function Padded{P<:U}(spec::Spec{P})
 end
 
 
-# main entry point.  infer the algorithm from the spec and delegate on.
+# main entry point.  infer the algorithm from the spec and delegate on
+# so that we can capture A (the type of the accumulator).
 function crc{P<:U}(spec::Spec{P}; tables=Multiple)
     algo = spec.refin ? Reflected(spec) : Padded(spec)
     crc(spec, algo; tables=tables)
 end
 
-# infer the tables from the algorithm / spec and user parameters.
 # return a function that evaluates the CRC against the cached lookup
 # tables (if used).
 function crc{P<:U, A<:U}(spec::Spec{P}, algo::Algorithm{A}; tables=Multiple)
