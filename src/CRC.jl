@@ -333,7 +333,7 @@ end
 # data given (along with the algorithm type, available lookup tables,
 # etc).
 
-const UNROLL = 8  # only get small improvements past this
+const UNROLL = 16  # only get small improvements past this
 
 function extend{A<:U}(algo::Padded{A}, tables::NoTables, data::Vector{Uint8}, remainder::A)
     for word::Uint8 in data
