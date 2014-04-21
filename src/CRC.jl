@@ -285,6 +285,9 @@ function make_tables{A<:U}(spec, algo, tables::Multiple{A})
     for index in zero(Uint8):convert(Uint8, 255)
         remainder = tables.tables[1][index + 1]
         for t in 2:sizeof(A)
+            # chaining gives the contribution of a byte to the
+            # remainder after being shifted through t other zero bytes
+            # (the different bytes are then combined with xor).
             remainder = chain(spec, algo, tables.tables[1], remainder)
             tables.tables[t][index + 1] = remainder
         end
@@ -298,10 +301,6 @@ function fill_table{A<:U}(spec, algo, table::Vector{A})
         table[index + 1] = extend(spec, algo, NoTable(), [index], zero(A))
     end
 end
-
-# chaining gives the contribution of a byte to the remainder after
-# being shifted through t other zero bytes (the different bytes are
-# then combined with xor).
 
 function chain{A<:U}(spec, algo::Padded{A}, table::Vector{A}, remainder::A)
     (remainder << 8) $ table[1 + ((remainder >>> algo.pad_8) & 0xff)]
