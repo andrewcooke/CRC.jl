@@ -23,22 +23,10 @@ ALL = [CRC_3_ROHC, CRC_4_ITU, CRC_5_EPC, CRC_5_ITU,
 
 function test_crc(spec)
     print(spec)
-    @test crc(spec, lookup=false)(TEST) == spec.test
-    print(".")
-    result = crc(spec)(TEST)
-    if result != spec.test
-        println("false $(hex(result))")
-        @test result == spec.test
-    end
-    println("ok")
-end
-
-function test_crc_no_table()
-    print("no table")
-    for spec in ALL
-        result = crc(spec, TEST)
+    for tables in (NoTables, Single, Multiple)
+        result = crc(spec, tables=tables)(TEST)
         if result != spec.test
-            println("$spec $(hex(result)) $(hex(spec.test))")
+            println("$tables $(hex(result))")
             @test result == spec.test
         end
         print(".")
@@ -51,14 +39,14 @@ function test_all()
     bad = Set()
     for _ in 1:10
         data = rand(Uint8, rand(100:200))
-#        data = rand(Uint8, rand(10:20))
         for spec in ALL
             if ! in(spec, bad)
-#                r1 = crc(spec, data)
-                r1 = crc(spec, lookup=false)(data)
-                r2 = crc(spec)(data)
-                if r1 != r2
-                    push!(bad, spec)
+                r1 = crc(spec, tables=NoTables)(data)
+                for tables in (Single, Multiple)
+                    r2 = crc(spec, tables=tables)(data)
+                    if r1 != r2
+                        push!(bad, spec)
+                    end
                 end
                 print(".")
             end

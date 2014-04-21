@@ -34,7 +34,7 @@ julia> c(b"123456789")
 ### Force Direct (Tableless) Calculation
 
 ```
-julia> crc(CRC_32, lookup=false)(b"123456789")
+julia> crc(CRC_32, tables=NoTables)(b"123456789")
 0xcbf43926
 ```
 

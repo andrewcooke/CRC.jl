@@ -13,23 +13,23 @@
 
 module CRC
 
-export crc, make_tables, spec, TEST, CRC_3_ROHC, CRC_4_ITU, CRC_5_EPC,
-       CRC_5_ITU, CRC_5_USB, CRC_6_CDMA2000_A, CRC_6_CDMA2000_B,
-       CRC_6_DARC, CRC_6_ITU, CRC_7, CRC_7_ROHC, CRC_8,
-       CRC_8_CDMA2000, CRC_8_DARC, CRC_8_DVB_S2, CRC_8_EBU,
-       CRC_8_I_CODE, CRC_8_ITU, CRC_8_MAXIM, CRC_8_ROHC, CRC_8_WCDMA,
-       CRC_10, CRC_10_CDMA2000, CRC_11, CRC_12_3GPP, CRC_12_CDMA2000,
-       CRC_12_DECT, CRC_13_BBC, CRC_14_DARC, CRC_15, CRC_15_MPT1327,
-       CRC_16_ARC, CRC_16_AUG_CCITT, CRC_16_BUYPASS,
-       CRC_16_CCITT_FALSE, CRC_16_CDMA2000, CRC_16_DDS_110,
-       CRC_16_DECT_R, CRC_16_DECT_X, CRC_16_DNP, CRC_16_EN_13757,
-       CRC_16_GENIBUS, CRC_16_MAXIM, CRC_16_RIELLO, CRC_16_TELEDISK,
-       CRC_16_USB, CRC_16_CRC_A, CRC_16_KERMIT, CRC_16_MODBUS,
-       CRC_16_X_25, CRC_16_XMODEM, CRC_24, CRC_24_FLEXRAY_A,
-       CRC_24_FLEXRAY_B, CRC_31_PHILIPS, CRC_32, CRC_32_BZIP2,
-       CRC_32_C, CRC_32_D, CRC_32_MPEG_2, CRC_32_POSIX, CRC_32_Q,
-       CRC_32_JAMCRC, CRC_32_XFER, CRC_40_GSM, CRC_64, CRC_64_WE,
-       CRC_64_XZ, CRC_82_DARC
+export crc, make_tables, spec, TEST, NoTables, Single, Multiple,
+       CRC_3_ROHC, CRC_4_ITU, CRC_5_EPC, CRC_5_ITU, CRC_5_USB,
+       CRC_6_CDMA2000_A, CRC_6_CDMA2000_B, CRC_6_DARC, CRC_6_ITU,
+       CRC_7, CRC_7_ROHC, CRC_8, CRC_8_CDMA2000, CRC_8_DARC,
+       CRC_8_DVB_S2, CRC_8_EBU, CRC_8_I_CODE, CRC_8_ITU, CRC_8_MAXIM,
+       CRC_8_ROHC, CRC_8_WCDMA, CRC_10, CRC_10_CDMA2000, CRC_11,
+       CRC_12_3GPP, CRC_12_CDMA2000, CRC_12_DECT, CRC_13_BBC,
+       CRC_14_DARC, CRC_15, CRC_15_MPT1327, CRC_16_ARC,
+       CRC_16_AUG_CCITT, CRC_16_BUYPASS, CRC_16_CCITT_FALSE,
+       CRC_16_CDMA2000, CRC_16_DDS_110, CRC_16_DECT_R, CRC_16_DECT_X,
+       CRC_16_DNP, CRC_16_EN_13757, CRC_16_GENIBUS, CRC_16_MAXIM,
+       CRC_16_RIELLO, CRC_16_TELEDISK, CRC_16_USB, CRC_16_CRC_A,
+       CRC_16_KERMIT, CRC_16_MODBUS, CRC_16_X_25, CRC_16_XMODEM,
+       CRC_24, CRC_24_FLEXRAY_A, CRC_24_FLEXRAY_B, CRC_31_PHILIPS,
+       CRC_32, CRC_32_BZIP2, CRC_32_C, CRC_32_D, CRC_32_MPEG_2,
+       CRC_32_POSIX, CRC_32_Q, CRC_32_JAMCRC, CRC_32_XFER, CRC_40_GSM,
+       CRC_64, CRC_64_WE, CRC_64_XZ, CRC_82_DARC
 
 import Base.Cartesian: @nexprs
 
@@ -197,16 +197,18 @@ end
 
 # a calculation may use no, one, or many tables...
 
-abstract Table
+abstract Tables{A<:U}
 
-immutable NoTable<:Table end
+type NoTables{A<:U}<:Tables{A} 
+    NoTables() = new()
+end
 
-type Multiple{A<:U}<:Table 
+type Multiple{A<:U}<:Tables{A} 
     tables::Vector{Vector{A}}
     Multiple() = new()
 end
 
-type Single{A<:U}<:Table 
+type Single{A<:U}<:Tables{A}
     table::Vector{A}
     Single() = new()
 end
@@ -258,37 +260,40 @@ end
 
 
 # main entry point.  infer the algorithm from the spec and delegate on.
-function crc{P<:U}(spec::Spec{P}; lookup=true)
+function crc{P<:U}(spec::Spec{P}; tables=Multiple)
     algo = spec.refin ? Reflected(spec) : Padded(spec)
-    crc(spec, algo; lookup=lookup)
+    crc(spec, algo; tables=tables)
 end
 
 # infer the tables from the algorithm / spec and user parameters.
 # return a function that evaluates the CRC against the cached lookup
 # tables (if used).
-function crc{P<:U, A<:U}(spec::Spec{P}, algo::Algorithm{A}; lookup=true)
-    tables = lookup ? make_tables(spec, algo, Multiple{A}()) : NoTable()
+function crc{P<:U, A<:U}(spec::Spec{P}, algo::Algorithm{A}; tables=Multiple)
     return data -> finalize(spec, algo, 
-                            extend(spec, algo, tables, data, algo.init))
+                            extend(algo, make_tables(algo, tables{A}()),
+                                   data, algo.init))
 end
 
-
-function make_tables{A<:U}(spec, algo, tables::Single{A})
-    tables.table = Array(A, 256)
-    fill_table(spec, algo, tables.table)
+function make_tables{A<:U}(algo, tables::NoTables{A})
     tables
 end
 
-function make_tables{A<:U}(spec, algo, tables::Multiple{A})
+function make_tables{A<:U}(algo, tables::Single{A})
+    tables.table = Array(A, 256)
+    fill_table(algo, tables.table)
+    tables
+end
+
+function make_tables{A<:U}(algo, tables::Multiple{A})
     tables.tables = Vector{A}[Array(A, 256) for _ in 1:sizeof(A)]
-    fill_table(spec, algo, tables.tables[1])
+    fill_table(algo, tables.tables[1])
     for index in zero(Uint8):convert(Uint8, 255)
         remainder = tables.tables[1][index + 1]
         for t in 2:sizeof(A)
             # chaining gives the contribution of a byte to the
             # remainder after being shifted through t other zero bytes
             # (the different bytes are then combined with xor).
-            remainder = chain(spec, algo, tables.tables[1], remainder)
+            remainder = chain(algo, tables.tables[1], remainder)
             tables.tables[t][index + 1] = remainder
         end
     end
@@ -296,17 +301,17 @@ function make_tables{A<:U}(spec, algo, tables::Multiple{A})
 end
 
 # the basic lookup table is just the remainder for each value
-function fill_table{A<:U}(spec, algo, table::Vector{A})
+function fill_table{A<:U}(algo, table::Vector{A})
     for index in zero(Uint8):convert(Uint8, 255)
-        table[index + 1] = extend(spec, algo, NoTable(), [index], zero(A))
+        table[index + 1] = extend(algo, NoTables{A}(), [index], zero(A))
     end
 end
 
-function chain{A<:U}(spec, algo::Padded{A}, table::Vector{A}, remainder::A)
+function chain{A<:U}(algo::Padded{A}, table::Vector{A}, remainder::A)
     (remainder << 8) $ table[1 + ((remainder >>> algo.pad_8) & 0xff)]
 end
 
-function chain{A<:U}(spec, algo::Reflected{A}, table::Vector{A}, remainder::A)
+function chain{A<:U}(algo::Reflected{A}, table::Vector{A}, remainder::A)
     (remainder >>> 8) $ table[1 + (remainder & 0xff)]
 end
 
@@ -330,7 +335,7 @@ end
 # data given (along with the algorithm type, available lookup tables,
 # etc).
 
-function extend{P<:U, A<:U}(spec::Spec{P}, algo::Padded{A}, tables::NoTable, data::Vector{Uint8}, remainder::A)
+function extend{A<:U}(algo::Padded{A}, tables::NoTables, data::Vector{Uint8}, remainder::A)
     for word::Uint8 in data
         remainder::A = remainder $ (convert(A, word) << algo.pad_8)
         for _ in 1:8
@@ -344,7 +349,7 @@ function extend{P<:U, A<:U}(spec::Spec{P}, algo::Padded{A}, tables::NoTable, dat
     remainder
 end
 
-function extend{P<:U, A<:U}(spec::Spec{P}, algo::Padded{A}, tables::Single{A}, data::Vector{Uint8}, remainder::A)
+function extend{A<:U}(algo::Padded{A}, tables::Single{A}, data::Vector{Uint8}, remainder::A)
     # unrolling this loop didn't help any
     for i in 1:length(data)
         @inbounds word::Uint8 = data[i]
@@ -357,7 +362,7 @@ end
 for A in (Uint16, Uint32, Uint64, Uint128)
     n_tables = sizeof(A)
     @eval begin
-        function extend{P<:U}(spec::Spec{P}, algo::Padded{$A}, tables::Multiple{$A}, data::Vector{$A}, remainder::$A)
+        function extend(algo::Padded{$A}, tables::Multiple{$A}, data::Vector{$A}, remainder::$A)
             word::$A, tmp::$A, remainder::$A = zero($A), zero($A), remainder
             i = 1
             while true
@@ -381,7 +386,7 @@ for A in (Uint16, Uint32, Uint64, Uint128)
     end
 end
 
-function extend{P<:U, A<:U}(spec::Spec{P}, algo::Reflected{A}, tables::NoTable, data::Vector{Uint8}, remainder::A)
+function extend{A<:U}(algo::Reflected{A}, tables::NoTables, data::Vector{Uint8}, remainder::A)
     for word::Uint8 in data
         remainder::A = remainder $ convert(A, word)
         for _ in 1:8
@@ -395,7 +400,7 @@ function extend{P<:U, A<:U}(spec::Spec{P}, algo::Reflected{A}, tables::NoTable, 
     remainder
 end
 
-function extend{P<:U, A<:U}(spec::Spec{P}, algo::Reflected{A}, tables::Single{A}, data::Vector{Uint8}, remainder::A)
+function extend{A<:U}(algo::Reflected{A}, tables::Single{A}, data::Vector{Uint8}, remainder::A)
     for word::Uint8 in data
         remainder::A = remainder $ (convert(A, word))
         remainder = (remainder >>> 8) $ tables.table[1 + remainder & 0xff]
@@ -408,7 +413,7 @@ end
 for A in (Uint16, Uint32, Uint64, Uint128)
     n_tables = sizeof(A)
     @eval begin
-        function extend{P<:U}(spec::Spec{P}, algo::Reflected{$A}, tables::Multiple{$A}, data::Vector{$A}, remainder::$A)
+        function extend(algo::Reflected{$A}, tables::Multiple{$A}, data::Vector{$A}, remainder::$A)
             word::$A, tmp::$A, remainder::$A = zero($A), zero($A), remainder
             i = 1
             while true
@@ -430,18 +435,18 @@ for A in (Uint16, Uint32, Uint64, Uint128)
 end
 
 # short-circuit "all Uint8" avoiding a self-recursive loop below
-function extend{P<:U}(spec::Spec{P}, algo::Algorithm{Uint8}, tables::Multiple{Uint8}, data::Vector{Uint8}, remainder::Uint8)
-    extend(spec, algo, Single(tables), data, remainder)
+function extend(algo::Algorithm{Uint8}, tables::Multiple{Uint8}, data::Vector{Uint8}, remainder::Uint8)
+    extend(algo, Single(tables), data, remainder)
 end
 
-function extend{P<:U, A<:U}(spec::Spec{P}, algo::Algorithm{A}, tables::Multiple{A}, data::Vector{Uint8}, remainder::A)
+function extend{A<:U}(algo::Algorithm{A}, tables::Multiple{A}, data::Vector{Uint8}, remainder::A)
     # this is "clever" - we alias the array of bytes to native machine
     # words and then process those, which typically (64 bits) loads 8
     # bytes at a time.
     tail = length(data) % sizeof(A)
-    remainder = extend(spec, algo, tables, reinterpret(A, data), remainder)
+    remainder = extend(algo, tables, reinterpret(A, data), remainder)
     # slurp up the final bytes that didn't fill a complete machine word.
-    extend(spec, algo, Single(tables), data[end-tail+1:end], remainder)
+    extend(algo, Single(tables), data[end-tail+1:end], remainder)
 end
 
 end
