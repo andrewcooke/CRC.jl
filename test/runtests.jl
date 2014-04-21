@@ -79,13 +79,15 @@ tests()
 
 function time_libz()
 
-    ours = crc(CRC_32)
     data = rand(Uint8, 300_000_000)
     check = crc32(data)
-    @assert ours(data) == check
-
     @time crc32(data)
-    @time ours(data)
+    for tables in (Single, Multiple)
+        ours = crc(CRC_32, tables=tables)
+        @assert ours(data) == check
+        println(tables)
+        @time ours(data)
+    end
 end
 
 function time_padded()
