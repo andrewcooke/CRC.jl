@@ -304,6 +304,10 @@ function fill_table{A<:U}(spec, algo, table::Vector{A})
     end
 end
 
+# chaining gives the contribution of a byte to the remainder after
+# being shifted through t other zero bytes (the different bytes are
+# then combined with xor).
+
 function chain{A<:U}(spec, algo::Padded{A}, table::Vector{A}, remainder::A)
     (remainder << 8) $ table[1 + ((remainder >>> algo.pad_8) & 0xff)]
 end
