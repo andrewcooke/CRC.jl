@@ -199,9 +199,7 @@ end
 
 abstract Tables{A<:U}
 
-type NoTables{A<:U}<:Tables{A} 
-    NoTables() = new()
-end
+immutable NoTables{A<:U}<:Tables{A} end
 
 type Multiple{A<:U}<:Tables{A} 
     tables::Vector{Vector{A}}
