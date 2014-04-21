@@ -12,10 +12,10 @@ Redundancy Checksums (CRCs).
 
 * Speed is comparable to optimized C (checked against CRC32 in libz).
 
-* Only arrays of bytes are accepted as data (again, contact me if you
-  want something else as it's certainly possible to handle arbitrary
-  sized sequences; previous versions did this, but it complicated the
-  code for little practical gain so I removed it).
+* Only arrays of bytes are accepted as data (it's certainly possible
+  to handle arbitrary sized sequences; previous versions did this, but
+  it complicated the code for little practical gain so I removed it -
+  please contact me if you want me to add it back).
 
 ## Examples
 
