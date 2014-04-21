@@ -384,8 +384,7 @@ for A in (Uint16, Uint32, Uint64, Uint128)
 end
 
 function extend{A<:U}(algo::Reflected{A}, tables::NoTables, data::Vector{Uint8}, remainder::A)
-    for i in 1:length(data)
-        @inbounds word::Uint8 = data[i]
+    for word::Uint8 in data
         remainder::A = remainder $ convert(A, word)
         for _ in 1:8
             if remainder & one(A) == one(A)
@@ -399,7 +398,8 @@ function extend{A<:U}(algo::Reflected{A}, tables::NoTables, data::Vector{Uint8},
 end
 
 function extend{A<:U}(algo::Reflected{A}, tables::Single{A}, data::Vector{Uint8}, remainder::A)
-    for word::Uint8 in data
+    for i in 1:length(data)
+        @inbounds word::Uint8 = data[i]
         remainder::A = remainder $ (convert(A, word))
         remainder = (remainder >>> 8) $ tables.table[1 + remainder & 0xff]
     end
