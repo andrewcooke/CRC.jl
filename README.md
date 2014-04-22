@@ -55,7 +55,7 @@ xorout=0x00 check=0x75 name="CRC-7"`
 julia> myCRC7 = spec(7, 0x09, 0x00, false, false, 0x00, 0x75)
 Spec{Uint8}(7,0x09,0x00,false,false,0x00,0x75)
 
-julia> @assert crc(myCRC7)(TEST) == myCRC7.test
+julia> @assert crc(myCRC7)(CHECK) == myCRC7.check
 ```
 
 Of course, this is already defined:
