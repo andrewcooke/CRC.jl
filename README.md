@@ -105,7 +105,7 @@ Julia.  So to use this you must (1) install Julia (version 0.3 or
 later) and then (2) install this package.
 
 Julia can be downloaded [here](http://julialang.org/downloads/).  Once
-Julia is working you can install this package from inside Julia:
+Julia is working you can install this package using:
 
 ```
 julia> Pkg.clone("https://github.com/andrewcooke/CRC.jl.git")^C
