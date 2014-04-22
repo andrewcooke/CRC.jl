@@ -29,9 +29,10 @@ export crc, make_tables, spec, TEST, NoTables, Single, Multiple,
        CRC_24, CRC_24_FLEXRAY_A, CRC_24_FLEXRAY_B, CRC_31_PHILIPS,
        CRC_32, CRC_32_BZIP2, CRC_32_C, CRC_32_D, CRC_32_MPEG_2,
        CRC_32_POSIX, CRC_32_Q, CRC_32_JAMCRC, CRC_32_XFER, CRC_40_GSM,
-       CRC_64, CRC_64_WE, CRC_64_XZ, CRC_82_DARC
+       CRC_64, CRC_64_WE, CRC_64_XZ, CRC_82_DARC, ALL
 
 import Base.Cartesian: @nexprs
+import Base: ==, isless
 
 typealias U Unsigned
 
@@ -62,6 +63,10 @@ spec{P<:U}(poly::P, init::P, refin::Bool, refout::Bool, xorout::P, test::P) =
 spec{P<:U}(width::Int, poly::P, init::P, refin::Bool, refout::Bool, xorout::P, test::P) = 
     Spec{P}(width, poly, init, refin, refout, xorout, test)
 
+==(a::Spec, b::Spec) = a.width == b.width && a.poly == b.poly && a.init == b.init && a.refin == b.refin && a.refout == b.refout && a.xorout == b.xorout
+
+isless(a::Spec, b::Spec) = a.width < b.width || (a.width == b.width && (a.poly < b.poly || a.poly == b.poly && (a.init < b.init || (a.init == b.init && !a.refin && (a.refin != b.refin || (a.refin == b.refin && !a.refout && (a.refout != b.refout || a.xorout < b.xorout)))))))
+        
 
 # http://reveng.sourceforge.net/crc-catalogue/1-15.htm
 CRC_3_ROHC =         spec(3, 0x03, 0x07, true,  true,  0x00, 0x06)
@@ -138,6 +143,44 @@ CRC_64_WE =          spec(0x42f0e1eba9ea3693, 0xffffffffffffffff, false, false, 
 CRC_64_XZ =          spec(0x42f0e1eba9ea3693, 0xffffffffffffffff, true,  true,  0xffffffffffffffff, 0x995dc9bbdf1939fa)
 CRC_82_DARC =        spec(82, 0x0308c0111011401440411, 0x000000000000000000000, true,  true,   0x000000000000000000000, 0x09ea83f625023801fd612)
 
+ALL = {:CRC_3_ROHC=>CRC_3_ROHC, :CRC_4_ITU=>CRC_4_ITU,
+       :CRC_5_EPC=>CRC_5_EPC, :CRC_5_ITU=>CRC_5_ITU,
+       :CRC_5_USB=>CRC_5_USB, :CRC_6_CDMA2000_A=>CRC_6_CDMA2000_A,
+       :CRC_6_CDMA2000_B=>CRC_6_CDMA2000_B, :CRC_6_DARC=>CRC_6_DARC,
+       :CRC_6_ITU=>CRC_6_ITU, :CRC_7=>CRC_7, :CRC_7_ROHC=>CRC_7_ROHC,
+       :CRC_8=>CRC_8, :CRC_8_CDMA2000=>CRC_8_CDMA2000,
+       :CRC_8_DARC=>CRC_8_DARC, :CRC_8_DVB_S2=>CRC_8_DVB_S2,
+       :CRC_8_EBU=>CRC_8_EBU, :CRC_8_I_CODE=>CRC_8_I_CODE,
+       :CRC_8_ITU=>CRC_8_ITU, :CRC_8_MAXIM=>CRC_8_MAXIM,
+       :CRC_8_ROHC=>CRC_8_ROHC, :CRC_8_WCDMA=>CRC_8_WCDMA,
+       :CRC_10=>CRC_10, :CRC_10_CDMA2000=>CRC_10_CDMA2000,
+       :CRC_11=>CRC_11, :CRC_12_3GPP=>CRC_12_3GPP,
+       :CRC_12_CDMA2000=>CRC_12_CDMA2000, :CRC_12_DECT=>CRC_12_DECT,
+       :CRC_13_BBC=>CRC_13_BBC, :CRC_14_DARC=>CRC_14_DARC,
+       :CRC_15=>CRC_15, :CRC_15_MPT1327=>CRC_15_MPT1327,
+       :CRC_16_ARC=>CRC_16_ARC, :CRC_16_AUG_CCITT=>CRC_16_AUG_CCITT,
+       :CRC_16_BUYPASS=> CRC_16_BUYPASS,
+       :CRC_16_CCITT_FALSE=>CRC_16_CCITT_FALSE,
+       :CRC_16_CDMA2000=>CRC_16_CDMA2000,
+       :CRC_16_DDS_110=>CRC_16_DDS_110, :CRC_16_DECT_R=>CRC_16_DECT_R,
+       :CRC_16_DECT_X=>CRC_16_DECT_X, :CRC_16_DNP=>CRC_16_DNP,
+       :CRC_16_EN_13757=>CRC_16_EN_13757,
+       :CRC_16_GENIBUS=>CRC_16_GENIBUS, :CRC_16_MAXIM=>CRC_16_MAXIM,
+       :CRC_16_RIELLO=>CRC_16_RIELLO,
+       :CRC_16_TELEDISK=>CRC_16_TELEDISK, :CRC_16_USB=>CRC_16_USB,
+       :CRC_16_CRC_A=>CRC_16_CRC_A, :CRC_16_KERMIT=>CRC_16_KERMIT,
+       :CRC_16_MODBUS=>CRC_16_MODBUS, :CRC_16_X_25=>CRC_16_X_25,
+       :CRC_16_XMODEM=>CRC_16_XMODEM, :CRC_24=>CRC_24,
+       :CRC_24_FLEXRAY_A=>CRC_24_FLEXRAY_A,
+       :CRC_24_FLEXRAY_B=>CRC_24_FLEXRAY_B,
+       :CRC_31_PHILIPS=>CRC_31_PHILIPS, :CRC_32=>CRC_32,
+       :CRC_32_BZIP2=>CRC_32_BZIP2, :CRC_32_C=>CRC_32_C,
+       :CRC_32_D=>CRC_32_D, :CRC_32_MPEG_2=>CRC_32_MPEG_2,
+       :CRC_32_POSIX=>CRC_32_POSIX, :CRC_32_Q=>CRC_32_Q,
+       :CRC_32_JAMCRC=>CRC_32_JAMCRC, :CRC_32_XFER=>CRC_32_XFER,
+       :CRC_40_GSM=>CRC_40_GSM, :CRC_64=>CRC_64,
+       :CRC_64_WE=>CRC_64_WE, :CRC_64_XZ=>CRC_64_XZ,
+       :CRC_82_DARC=>CRC_82_DARC}
 
 
 # --- Utilities
@@ -266,10 +309,29 @@ end
 
 # return a function that evaluates the CRC against the cached lookup
 # tables (if used).
-function crc{P<:U, A<:U}(spec::Spec{P}, algo::Algorithm{A}; tables=Multiple)
-    return data -> finalize(spec, algo, 
-                            extend(algo, make_tables(algo, tables{A}()),
-                                   data, algo.init))
+function crc{P<:U, A<:U, T<:Tables}(spec::Spec{P}, algo::Algorithm{A}; 
+                                    tables::Type{T}=Multiple)
+    remainder::A = algo.init
+    tables::Tables = make_tables(algo, tables{A}())
+    function handler(data::Vector{Uint8}; append=false)
+        remainder = append ? remainder : algo.init
+        remainder = extend(algo, tables, data, remainder)
+        finalize(spec, algo, remainder)
+    end
+    function handler(io::IOStream; append=false, buflen=1000000)
+        buffer = Array(Uint8, buflen)
+        remainder = append ? remainder : algo.init
+        while (nb = readbytes!(io, buffer)) > 0
+            remainder = extend(algo, tables, buffer[1:nb], remainder)
+        end
+        finalize(spec, algo, remainder)
+    end
+    function handler(path::String; append=false, buflen=1000000)
+        open(path, "r") do f
+            handler(f, append=append, buflen=buflen)
+        end
+    end
+    handler
 end
 
 function make_tables(algo, tables::NoTables)
