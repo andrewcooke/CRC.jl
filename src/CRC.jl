@@ -251,32 +251,28 @@ abstract Tables{A<:U}
 
 immutable NoTables{A<:U}<:Tables{A} end
 
-type Multiple{A<:U}<:Tables{A} 
+immutable Multiple{A<:U}<:Tables{A} 
     tables::Vector{Vector{A}}
-    Multiple() = new()
 end
 
-type Single{A<:U}<:Tables{A}
+immutable Single{A<:U}<:Tables{A}
     table::Vector{A}
-    Single() = new()
 end
 
 # when using multiple tables we need a related single table for the
 # "last few bytes"
 function Single{A<:U}(tables::Multiple{A})
-    table = Single{A}()
-    table.table = tables.tables[1]
-    table
+    Single{A}(tables.tables[1])
 end
 
 
 # a calculation may be direct (padded to the size of the accumulator)
 # or "reverse the rest of the world".  this depends on whether the
-# input input bytes are taken as given (Padded) or reflected.
+# input input bytes are taken as given (Normal) or reflected.
 
-abstract Algorithm{A<:U}
+abstract Direction{A<:U}
 
-immutable Reflected{A<:U}<:Algorithm{A}
+immutable Reflected{A<:U}<:Direction{A}
     poly::A
     init::A
 end
@@ -288,7 +284,7 @@ function Reflected{P<:U}(spec::Spec{P})
     Reflected(poly, init)
 end
 
-immutable Padded{A<:U}<:Algorithm{A}
+immutable Normal{A<:U}<:Direction{A}
     pad_p::Int
     poly::A
     carry::A
@@ -296,42 +292,42 @@ immutable Padded{A<:U}<:Algorithm{A}
     init::A
 end
 
-function Padded{P<:U}(spec::Spec{P})
+function Normal{P<:U}(spec::Spec{P})
     A = fastest(P, Uint8, Uint)  # Uint8 for the data, Uint for multiple tables
     pad_p = pad(A, spec.width)
     poly = convert(A, spec.poly) << pad_p
     carry = one(A) << pad(A, 1)
     pad_8 = pad(A, 8)
     init = convert(A, spec.init) << pad_p
-    Padded(pad_p, poly, carry, pad_8, init)
+    Normal(pad_p, poly, carry, pad_8, init)
 end
 
 
 # main entry point.  infer the algorithm from the spec and delegate on
 # so that we can capture A (the type of the accumulator).
 function crc{P<:U}(spec::Spec{P}; tables=Multiple)
-    algo = spec.refin ? Reflected(spec) : Padded(spec)
-    crc(spec, algo; tables=tables)
+    direcn = spec.refin ? Reflected(spec) : Normal(spec)
+    crc(spec, direcn; tables=tables)
 end
 
 # return a function that evaluates the CRC against the cached lookup
 # tables (if used).
-function crc{P<:U, A<:U, T<:Tables}(spec::Spec{P}, algo::Algorithm{A}; 
+function crc{P<:U, A<:U, T<:Tables}(spec::Spec{P}, direcn::Direction{A}; 
                                     tables::Type{T}=Multiple)
-    remainder::A = algo.init
-    tables::Tables = make_tables(algo, tables{A}())
+    remainder::A = direcn.init
+    tables::Tables = make_tables(direcn, tables)
     function handler(data::Vector{Uint8}; append=false)
-        remainder = append ? remainder : algo.init
-        remainder = extend(algo, tables, data, remainder)
-        finalize(spec, algo, remainder)
+        remainder = append ? remainder : direcn.init
+        remainder = extend(direcn, tables, data, remainder)
+        finalize(spec, direcn, remainder)
     end
     function handler(io::IO; append=false, buflen=1000000)
         buffer = Array(Uint8, buflen)
-        remainder = append ? remainder : algo.init
+        remainder = append ? remainder : direcn.init
         while (nb = readbytes!(io, buffer)) > 0
-            remainder = extend(algo, tables, buffer[1:nb], remainder)
+            remainder = extend(direcn, tables, buffer[1:nb], remainder)
         end
-        finalize(spec, algo, remainder)
+        finalize(spec, direcn, remainder)
     end
     function handler(path::String; append=false, buflen=1000000)
         # TODO - could get size and then mmap instead
@@ -342,26 +338,26 @@ function crc{P<:U, A<:U, T<:Tables}(spec::Spec{P}, algo::Algorithm{A};
     handler
 end
 
-function make_tables(algo, tables::NoTables)
+function make_tables{A<:U}(direcn::Direction{A}, ::Type{NoTables})
+    NoTables{A}()
+end
+
+function make_tables{A<:U}(direcn::Direction{A}, ::Type{Single})
+    tables = Single{A}(Array(A, 256))
+    fill_table(direcn, tables.table)
     tables
 end
 
-function make_tables{A<:U}(algo, tables::Single{A})
-    tables.table = Array(A, 256)
-    fill_table(algo, tables.table)
-    tables
-end
-
-function make_tables{A<:U}(algo, tables::Multiple{A})
-    tables.tables = Vector{A}[Array(A, 256) for _ in 1:sizeof(A)]
-    fill_table(algo, tables.tables[1])
+function make_tables{A<:U}(direcn::Direction{A}, ::Type{Multiple})
+    tables = Multiple{A}(Vector{A}[Array(A, 256) for _ in 1:sizeof(A)])
+    fill_table(direcn, tables.tables[1])
     for index in zero(Uint8):convert(Uint8, 255)
         remainder = tables.tables[1][index + 1]
         for t in 2:sizeof(A)
             # chaining gives the contribution of a byte to the
             # remainder after being shifted through t other zero bytes
             # (the different bytes are then combined with xor).
-            remainder = chain(algo, tables.tables[1], remainder)
+            remainder = chain(direcn, tables.tables[1], remainder)
             tables.tables[t][index + 1] = remainder
         end
     end
@@ -369,17 +365,17 @@ function make_tables{A<:U}(algo, tables::Multiple{A})
 end
 
 # the basic lookup table is just the remainder for each value
-function fill_table{A<:U}(algo, table::Vector{A})
+function fill_table{A<:U}(direcn, table::Vector{A})
     for index in zero(Uint8):convert(Uint8, 255)
-        table[index + 1] = extend(algo, NoTables{A}(), [index], zero(A))
+        table[index + 1] = extend(direcn, NoTables{A}(), [index], zero(A))
     end
 end
 
-function chain{A<:U}(algo::Padded{A}, table::Vector{A}, remainder::A)
-    (remainder << 8) $ table[1 + ((remainder >>> algo.pad_8) & 0xff)]
+function chain{A<:U}(direcn::Normal{A}, table::Vector{A}, remainder::A)
+    (remainder << 8) $ table[1 + ((remainder >>> direcn.pad_8) & 0xff)]
 end
 
-function chain{A<:U}(algo::Reflected{A}, table::Vector{A}, remainder::A)
+function chain{A<:U}(direcn::Reflected{A}, table::Vector{A}, remainder::A)
     (remainder >>> 8) $ table[1 + (remainder & 0xff)]
 end
 
@@ -387,13 +383,13 @@ end
 # calculations assume that the remainder is either reflected or
 # padded; these functions correct for this to return the final result.
 
-function finalize{P<:U, A<:U}(spec::Spec{P}, algo::Padded{A}, remainder::A)
-    remainder = convert(P, remainder >> algo.pad_p)
+function finalize{P<:U, A<:U}(spec::Spec{P}, direcn::Normal{A}, remainder::A)
+    remainder = convert(P, remainder >> direcn.pad_p)
     remainder = spec.refout ? reflect(spec.width, remainder) : remainder
     remainder $ spec.xorout
 end
 
-function finalize{P<:U, A<:U}(spec::Spec{P}, algo::Reflected{A}, remainder::A)
+function finalize{P<:U, A<:U}(spec::Spec{P}, direcn::Reflected{A}, remainder::A)
     remainder = spec.refout ? remainder : reflect(spec.width, remainder)
     convert(P, remainder) $ spec.xorout
 end
@@ -405,12 +401,12 @@ end
 
 const UNROLL = 16  # only get small improvements past this
 
-function extend{A<:U}(algo::Padded{A}, tables::NoTables, data::Vector{Uint8}, remainder::A)
+function extend{A<:U}(direcn::Normal{A}, tables::NoTables, data::Vector{Uint8}, remainder::A)
     for word::Uint8 in data
-        remainder::A = remainder $ (convert(A, word) << algo.pad_8)
+        remainder::A = remainder $ (convert(A, word) << direcn.pad_8)
         for _ in 1:8
-            if remainder & algo.carry == algo.carry
-                remainder = (remainder << 1) $ algo.poly
+            if remainder & direcn.carry == direcn.carry
+                remainder = (remainder << 1) $ direcn.poly
             else
                 remainder <<= 1
             end
@@ -419,11 +415,11 @@ function extend{A<:U}(algo::Padded{A}, tables::NoTables, data::Vector{Uint8}, re
     remainder
 end
 
-function extend{A<:U}(algo::Padded{A}, tables::Single{A}, data::Vector{Uint8}, remainder::A)
+function extend{A<:U}(direcn::Normal{A}, tables::Single{A}, data::Vector{Uint8}, remainder::A)
     for i in 1:length(data)
         @inbounds word::Uint8 = data[i]
-        remainder::A = remainder $ (convert(A, word) << algo.pad_8)
-        remainder = (remainder << 8) $ tables.table[1 + remainder >>> algo.pad_8]
+        remainder::A = remainder $ (convert(A, word) << direcn.pad_8)
+        remainder = (remainder << 8) $ tables.table[1 + remainder >>> direcn.pad_8]
     end
     remainder
 end
@@ -431,7 +427,7 @@ end
 for A in (Uint16, Uint32, Uint64, Uint128)
     n_tables = sizeof(A)
     @eval begin
-        function extend(algo::Padded{$A}, tables::Multiple{$A}, data::Vector{$A}, remainder::$A)
+        function extend(direcn::Normal{$A}, tables::Multiple{$A}, data::Vector{$A}, remainder::$A)
             word::$A, tmp::$A, remainder::$A = zero($A), zero($A), remainder
             i = 1
             while true
@@ -455,12 +451,12 @@ for A in (Uint16, Uint32, Uint64, Uint128)
     end
 end
 
-function extend{A<:U}(algo::Reflected{A}, tables::NoTables, data::Vector{Uint8}, remainder::A)
+function extend{A<:U}(direcn::Reflected{A}, tables::NoTables, data::Vector{Uint8}, remainder::A)
     for word::Uint8 in data
         remainder::A = remainder $ convert(A, word)
         for _ in 1:8
             if remainder & one(A) == one(A)
-                remainder = (remainder >>> 1) $ algo.poly
+                remainder = (remainder >>> 1) $ direcn.poly
             else
                 remainder >>>= 1
             end
@@ -469,7 +465,7 @@ function extend{A<:U}(algo::Reflected{A}, tables::NoTables, data::Vector{Uint8},
     remainder
 end
 
-function extend{A<:U}(algo::Reflected{A}, tables::Single{A}, data::Vector{Uint8}, remainder::A)
+function extend{A<:U}(direcn::Reflected{A}, tables::Single{A}, data::Vector{Uint8}, remainder::A)
     for i in 1:length(data)
         @inbounds word::Uint8 = data[i]
         remainder::A = remainder $ (convert(A, word))
@@ -483,7 +479,7 @@ end
 for A in (Uint16, Uint32, Uint64, Uint128)
     n_tables = sizeof(A)
     @eval begin
-        function extend(algo::Reflected{$A}, tables::Multiple{$A}, data::Vector{$A}, remainder::$A)
+        function extend(direcn::Reflected{$A}, tables::Multiple{$A}, data::Vector{$A}, remainder::$A)
             word::$A, tmp::$A, remainder::$A = zero($A), zero($A), remainder
             i = 1
             while true
@@ -505,18 +501,18 @@ for A in (Uint16, Uint32, Uint64, Uint128)
 end
 
 # short-circuit "all Uint8" avoiding a self-recursive loop below
-function extend(algo::Algorithm{Uint8}, tables::Multiple{Uint8}, data::Vector{Uint8}, remainder::Uint8)
-    extend(algo, Single(tables), data, remainder)
+function extend(direcn::Direction{Uint8}, tables::Multiple{Uint8}, data::Vector{Uint8}, remainder::Uint8)
+    extend(direcn, Single(tables), data, remainder)
 end
 
-function extend{A<:U}(algo::Algorithm{A}, tables::Multiple{A}, data::Vector{Uint8}, remainder::A)
+function extend{A<:U}(direcn::Direction{A}, tables::Multiple{A}, data::Vector{Uint8}, remainder::A)
     # this is "clever" - we alias the array of bytes to native machine
     # words and then process those, which typically (64 bits) loads 8
     # bytes at a time.
     tail = length(data) % sizeof(A)
-    remainder = extend(algo, tables, reinterpret(A, data), remainder)
+    remainder = extend(direcn, tables, reinterpret(A, data), remainder)
     # slurp up the final bytes that didn't fill a complete machine word.
-    extend(algo, Single(tables), data[end-tail+1:end], remainder)
+    extend(direcn, Single(tables), data[end-tail+1:end], remainder)
 end
 
 end
