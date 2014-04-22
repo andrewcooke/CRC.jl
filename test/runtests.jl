@@ -8,10 +8,10 @@ import Zlib: crc32
 function test_crc(spec)
     print(spec)
     for tables in (NoTables, Single, Multiple)
-        result = crc(spec, tables=tables)(TEST)
-        if result != spec.test
+        result = crc(spec, tables=tables)(CHECK)
+        if result != spec.check
             println("$tables $(hex(result))")
-            @test result == spec.test
+            @test result == spec.check
         end
         print(".")
     end
@@ -77,7 +77,7 @@ end
 function time_padded()
     ours = crc(CRC_64)
     data = rand(Uint8, 300_000_000)
-    @assert ours(TEST) == CRC_64.test
+    @assert ours(CHECK) == CRC_64.check
     @time ours(data)    # 0.95
 end
 

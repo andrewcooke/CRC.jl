@@ -13,7 +13,7 @@
 
 module CRC
 
-export crc, make_tables, spec, TEST, NoTables, Single, Multiple,
+export crc, make_tables, spec, CHECK, NoTables, Single, Multiple,
        CRC_3_ROHC, CRC_4_ITU, CRC_5_EPC, CRC_5_ITU, CRC_5_USB,
        CRC_6_CDMA2000_A, CRC_6_CDMA2000_B, CRC_6_DARC, CRC_6_ITU,
        CRC_7, CRC_7_ROHC, CRC_8, CRC_8_CDMA2000, CRC_8_DARC,
@@ -32,7 +32,7 @@ export crc, make_tables, spec, TEST, NoTables, Single, Multiple,
        CRC_64, CRC_64_WE, CRC_64_XZ, CRC_82_DARC, ALL
 
 import Base.Cartesian: @nexprs
-import Base: ==, isless
+import Base: ==, isless, print
 
 typealias U Unsigned
 
@@ -41,7 +41,7 @@ typealias U Unsigned
 # ---- CRC specifications from http://www.zlib.net/crc_v3.txt
 
 
-TEST = b"123456789"   # universal test vector
+CHECK = b"123456789"   # universal check vector
 
 type Spec{P<:U}
     width::Int    # polynomial degree
@@ -50,23 +50,30 @@ type Spec{P<:U}
     refin::Bool   # reflect input
     refout::Bool  # reflect output
     xorout::P     # xored with final remainder
-    test::P       # checksum for TEST
-    function Spec(width::Int, poly::P, init::P, refin::Bool, refout::Bool, xorout::P, test::P)
+    check::P      # checksum for CHECK
+    function Spec(width::Int, poly::P, init::P, refin::Bool, refout::Bool, xorout::P, check::P)
         @assert width <= 8 * sizeof(P)
-        new(width, poly, init, refin, refout, xorout, test)
+        new(width, poly, init, refin, refout, xorout, check)
     end
 end
 
-spec{P<:U}(poly::P, init::P, refin::Bool, refout::Bool, xorout::P, test::P) = 
-    Spec{P}(8*sizeof(P), poly, init, refin, refout, xorout, test)
+spec{P<:U}(poly::P, init::P, refin::Bool, refout::Bool, xorout::P, check::P) = 
+    Spec{P}(8*sizeof(P), poly, init, refin, refout, xorout, check)
 
-spec{P<:U}(width::Int, poly::P, init::P, refin::Bool, refout::Bool, xorout::P, test::P) = 
-    Spec{P}(width, poly, init, refin, refout, xorout, test)
+spec{P<:U}(width::Int, poly::P, init::P, refin::Bool, refout::Bool, xorout::P, check::P) = 
+    Spec{P}(width, poly, init, refin, refout, xorout, check)
 
 ==(a::Spec, b::Spec) = a.width == b.width && a.poly == b.poly && a.init == b.init && a.refin == b.refin && a.refout == b.refout && a.xorout == b.xorout
 
 isless(a::Spec, b::Spec) = a.width < b.width || (a.width == b.width && (a.poly < b.poly || a.poly == b.poly && (a.init < b.init || (a.init == b.init && !a.refin && (a.refin != b.refin || (a.refin == b.refin && !a.refout && (a.refout != b.refout || a.xorout < b.xorout)))))))
-        
+
+function print{P<:U}(io::IO, s::Spec{P})
+    n = 1 + div(s.width - 1, 4)
+    h = x -> "0x" * hex(x, n)
+    print(io, "width=$(s.width) poly=$(h(s.poly)) init=$(h(s.init)) refin=$(s.refin) refout=$(s.refout) xorout=$(h(s.xorout)) check=$(h(s.check))")
+end
+
+  
 
 # http://reveng.sourceforge.net/crc-catalogue/1-15.htm
 CRC_3_ROHC =         spec(3, 0x03, 0x07, true,  true,  0x00, 0x06)
@@ -318,7 +325,7 @@ function crc{P<:U, A<:U, T<:Tables}(spec::Spec{P}, algo::Algorithm{A};
         remainder = extend(algo, tables, data, remainder)
         finalize(spec, algo, remainder)
     end
-    function handler(io::IOStream; append=false, buflen=1000000)
+    function handler(io::IO; append=false, buflen=1000000)
         buffer = Array(Uint8, buflen)
         remainder = append ? remainder : algo.init
         while (nb = readbytes!(io, buffer)) > 0

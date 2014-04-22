@@ -10,6 +10,9 @@ function main(args)
         "--list", "-l"
         help = "list available CRC algorithms"
         action = :store_true
+        "--decimal", "-d"
+        help = "show checksums as decimal values (default is hex)"
+        action = :store_true
         "--crc", "-c"
         help = "name the CRC to use"
         default = "CRC_32"
@@ -22,15 +25,11 @@ function main(args)
     end
 
     parsed_args = parse_args(args, s)
-    println("Parsed args:")
-    for (key, val) in parsed_args
-        println(" $key => $(repr(val))")
-    end
 
     if parsed_args["list"]
         names = sort(collect(keys(ALL)), by=n->ALL[n])
         for name in names
-            @printf("%20s: %s\n", name, ALL[name])
+            @printf("%s %s\n", name, ALL[name])
         end
     end
 
@@ -39,10 +38,27 @@ function main(args)
         error("CRC $name is not defined")
     end
 
-    c = crc(ALL[name])
+    append = parsed_args["append"]
+    spec = ALL[name]
+    c = crc(spec)
+    if parsed_args["decimal"]
+        fmt = x -> dec(x)
+    else
+        fmt = x -> "0x" * hex(x, 1 + div(spec.width, 4))
+    end
+    sum = 0
     for file in parsed_args["files"]
-        sum = c(file, append=parsed_args["append"])
-        println("$sum $file")
+        if file == "-"
+            sum = c(STDIN, append=append)
+        else
+            sum = c(file, append=append)
+        end
+        if !append
+            println("$(fmt(sum)) $file")
+        end
+    end
+    if append
+        println("$(fmt(sum))")
     end
 
 end
