@@ -334,6 +334,7 @@ function crc{P<:U, A<:U, T<:Tables}(spec::Spec{P}, algo::Algorithm{A};
         finalize(spec, algo, remainder)
     end
     function handler(path::String; append=false, buflen=1000000)
+        # TODO - could get size and then mmap instead
         open(path, "r") do f
             handler(f, append=append, buflen=buflen)
         end
