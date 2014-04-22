@@ -83,17 +83,17 @@ optional arguments:
   -l, --list     list available CRC algorithms
   -d, --decimal  show checksums as decimal values (default is hex)
   -c, --crc CRC  name the CRC to use (default: CRC_32)
-  -a, --append   append the data together
+  -a, --append   combine the data from all files
   -h, --help     show this help message and exit
 
 andrew@laptop:~/project/CRC> julia $CRC -l | grep "CRC_32 "
 CRC_32 width=32 poly=0x04c11db7 init=0xffffffff refin=true refout=true xorout=0xffffffff check=0xcbf43926
-andrew@laptop:~/project/CRC> echo "123456789" > /tmp/crc.txt
+andrew@laptop:~/project/CRC> echo -n "123456789" > /tmp/crc.txt
 andrew@laptop:~/project/CRC> julia $CRC /tmp/crc.txt
-0x0e0117757 /tmp/crc.txt
+0xcbf43926 /tmp/crc.txt
 ```
 
-TODO - why doesn't the above match the check value?
+Note that the result matches the `check` value for the algorithm.
 
 
 [![Build

@@ -17,7 +17,7 @@ function main(args)
         help = "name the CRC to use"
         default = "CRC_32"
         "--append", "-a"
-        help = "append the data together"
+        help = "combine the data from all files"
         action = :store_true
         "files"
         help = "the files to read (- for stdin)"
@@ -44,7 +44,7 @@ function main(args)
     if parsed_args["decimal"]
         fmt = x -> dec(x)
     else
-        fmt = x -> "0x" * hex(x, 1 + div(spec.width, 4))
+        fmt = x -> "0x" * hex(x, 1 + div(spec.width-1, 4))
     end
     sum = 0
     for file in parsed_args["files"]
