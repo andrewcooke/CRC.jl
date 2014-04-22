@@ -108,7 +108,7 @@ Julia can be downloaded [here](http://julialang.org/downloads/).  Once
 Julia is working you can install this package using:
 
 ```
-julia> Pkg.clone("https://github.com/andrewcooke/CRC.jl.git")^C
+julia> Pkg.clone("https://github.com/andrewcooke/CRC.jl.git")
 ```
 
 [![Build
