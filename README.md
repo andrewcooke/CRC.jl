@@ -20,7 +20,7 @@ calculating the CRC of files.
 
 ## Examples
 
-### Calculate a CRC-32 Hash
+### Calculate a CRC-32 Sum
 
 ```
 julia> using CRC
@@ -67,7 +67,8 @@ Spec{Uint8}(7,0x09,0x00,false,false,0x00,0x75)
 
 ## From the Command Line
 
-The `crc.jl` file contains a simple utility for calculating the hash of files:
+The `crc.jl` file contains a simple utility for calculating the
+checksum of files:
 
 ```
 andrew@laptop:~/project/CRC> CRC=`find ~/.julia -name crc.jl`
