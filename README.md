@@ -67,6 +67,8 @@ Spec{Uint8}(7,0x09,0x00,false,false,0x00,0x75)
 
 ## From the Command Line
 
+### Use
+
 The `crc.jl` file contains a simple utility for calculating the
 checksum of files:
 
@@ -96,6 +98,18 @@ andrew@laptop:~/project/CRC> julia $CRC /tmp/crc.txt
 
 Note that the result matches the `check` value for the algorithm.
 
+### Installation
+
+Currently I am unsure how to make a simple, standalone utility with
+Julia.  So to use this you must (1) install Julia (version 0.3 or
+later) and then (2) install this package.
+
+Julia can be downloaded [here](http://julialang.org/downloads/).  Once
+julia is working you can install this package from inside Julia:
+
+```
+julia> Pkg.clone("https://github.com/andrewcooke/CRC.jl.git")^C
+```
 
 [![Build
 Status](https://travis-ci.org/andrewcooke/CRC.jl.png)](https://travis-ci.org/andrewcooke/CRC.jl)
