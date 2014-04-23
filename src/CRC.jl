@@ -245,29 +245,30 @@ end
 # --- CRC calculations
 
 
-# a calculation may be direct (padded to the size of the accumulator)
-# or "reverse the rest of the world".  this depends on whether the
-# input input bytes are taken as given (Normal) or reflected.
+# a calculation may be a "natural" long division (padded to the size
+# of the accumulator) or "reverse the rest of the world".  this
+# depends on whether the input input bytes are taken as given
+# (Forwards) or reflected (Backwards).
 
 abstract Direction{A<:U}
 
-immutable Reflected{A<:U}<:Direction{A}
+immutable Backwards{A<:U}<:Direction{A}
     poly::A
     init::A
-    function Reflected(spec::Spec)
+    function Backwards(spec::Spec)
         poly = reflect(spec.width, convert(A, spec.poly))
         init = reflect(spec.width, convert(A, spec.init))
         new(poly, init)
     end
 end
 
-immutable Normal{A<:U}<:Direction{A}
+immutable Forwards{A<:U}<:Direction{A}
     pad_p::Int
     poly::A
     carry::A
     pad_8::Int
     init::A
-    function Normal(spec::Spec)
+    function Forwards(spec::Spec)
         pad_p = pad(A, spec.width)
         poly = convert(A, spec.poly) << pad_p
         carry = one(A) << pad(A, 1)
@@ -285,11 +286,11 @@ function fill_table{A<:U}(direcn, table::Vector{A})
     table
 end
 
-function chain{A<:U}(direcn::Normal{A}, table::Vector{A}, remainder::A)
+function chain{A<:U}(direcn::Forwards{A}, table::Vector{A}, remainder::A)
     (remainder << 8) $ table[1 + ((remainder >>> direcn.pad_8) & 0xff)]
 end
 
-function chain{A<:U}(direcn::Reflected{A}, table::Vector{A}, remainder::A)
+function chain{A<:U}(direcn::Backwards{A}, table::Vector{A}, remainder::A)
     (remainder >>> 8) $ table[1 + (remainder & 0xff)]
 end
 
@@ -334,7 +335,7 @@ end
 # so that we can capture A (the type of the accumulator).
 function crc{P<:U, T<:Tables}(spec::Spec{P}; tables::Type{T}=Multiple)
     A = fastest(P, Uint, Uint8)
-    direcn = spec.refin ? Reflected{A}(spec) : Normal{A}(spec)
+    direcn = spec.refin ? Backwards{A}(spec) : Forwards{A}(spec)
     crc(spec, direcn; tables=tables)
 end
 
@@ -370,13 +371,13 @@ end
 # calculations assume that the remainder is either reflected or
 # padded; these functions correct for this to return the final result.
 
-function finalize{P<:U, A<:U}(spec::Spec{P}, direcn::Normal{A}, remainder::A)
+function finalize{P<:U, A<:U}(spec::Spec{P}, direcn::Forwards{A}, remainder::A)
     remainder = convert(P, remainder >> direcn.pad_p)
     remainder = spec.refout ? reflect(spec.width, remainder) : remainder
     remainder $ spec.xorout
 end
 
-function finalize{P<:U, A<:U}(spec::Spec{P}, direcn::Reflected{A}, remainder::A)
+function finalize{P<:U, A<:U}(spec::Spec{P}, direcn::Backwards{A}, remainder::A)
     remainder = spec.refout ? remainder : reflect(spec.width, remainder)
     convert(P, remainder) $ spec.xorout
 end
@@ -388,7 +389,7 @@ end
 
 const UNROLL = 16  # only get small improvements past this
 
-function extend{A<:U}(direcn::Normal{A}, tables::NoTables, data::Vector{Uint8}, remainder::A)
+function extend{A<:U}(direcn::Forwards{A}, tables::NoTables, data::Vector{Uint8}, remainder::A)
     for word::Uint8 in data
         remainder::A = remainder $ (convert(A, word) << direcn.pad_8)
         for _ in 1:8
@@ -402,7 +403,7 @@ function extend{A<:U}(direcn::Normal{A}, tables::NoTables, data::Vector{Uint8}, 
     remainder
 end
 
-function extend{A<:U}(direcn::Normal{A}, tables::Single{A}, data::Vector{Uint8}, remainder::A)
+function extend{A<:U}(direcn::Forwards{A}, tables::Single{A}, data::Vector{Uint8}, remainder::A)
     for i in 1:length(data)
         @inbounds word::Uint8 = data[i]
         remainder::A = remainder $ (convert(A, word) << direcn.pad_8)
@@ -414,7 +415,7 @@ end
 for A in (Uint16, Uint32, Uint64, Uint128)
     n_tables = sizeof(A)
     @eval begin
-        function extend(direcn::Normal{$A}, tables::Multiple{$A}, data::Vector{$A}, remainder::$A)
+        function extend(direcn::Forwards{$A}, tables::Multiple{$A}, data::Vector{$A}, remainder::$A)
             word::$A, tmp::$A, remainder::$A = zero($A), zero($A), remainder
             i = 1
             while true
@@ -438,7 +439,7 @@ for A in (Uint16, Uint32, Uint64, Uint128)
     end
 end
 
-function extend{A<:U}(direcn::Reflected{A}, tables::NoTables, data::Vector{Uint8}, remainder::A)
+function extend{A<:U}(direcn::Backwards{A}, tables::NoTables, data::Vector{Uint8}, remainder::A)
     for word::Uint8 in data
         remainder::A = remainder $ convert(A, word)
         for _ in 1:8
@@ -452,7 +453,7 @@ function extend{A<:U}(direcn::Reflected{A}, tables::NoTables, data::Vector{Uint8
     remainder
 end
 
-function extend{A<:U}(direcn::Reflected{A}, tables::Single{A}, data::Vector{Uint8}, remainder::A)
+function extend{A<:U}(direcn::Backwards{A}, tables::Single{A}, data::Vector{Uint8}, remainder::A)
     for i in 1:length(data)
         @inbounds word::Uint8 = data[i]
         remainder::A = remainder $ (convert(A, word))
@@ -466,7 +467,7 @@ end
 for A in (Uint16, Uint32, Uint64, Uint128)
     n_tables = sizeof(A)
     @eval begin
-        function extend(direcn::Reflected{$A}, tables::Multiple{$A}, data::Vector{$A}, remainder::$A)
+        function extend(direcn::Backwards{$A}, tables::Multiple{$A}, data::Vector{$A}, remainder::$A)
             word::$A, tmp::$A, remainder::$A = zero($A), zero($A), remainder
             i = 1
             while true
