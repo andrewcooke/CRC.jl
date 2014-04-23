@@ -260,7 +260,7 @@ function Reflected{P<:U}(spec::Spec{P})
     A = fastest(P, Uint8, Uint)  # Uint8 for the data, Uint for multiple tables
     poly = reflect(spec.width, convert(A, spec.poly))
     init = reflect(spec.width, convert(A, spec.init))
-    Reflected(poly, init)
+    Reflected{A}(poly, init)
 end
 
 immutable Normal{A<:U}<:Direction{A}
@@ -278,7 +278,7 @@ function Normal{P<:U}(spec::Spec{P})
     carry = one(A) << pad(A, 1)
     pad_8 = pad(A, 8)
     init = convert(A, spec.init) << pad_p
-    Normal(pad_p, poly, carry, pad_8, init)
+    Normal{A}(pad_p, poly, carry, pad_8, init)
 end
 
 
