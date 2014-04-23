@@ -245,27 +245,6 @@ end
 # --- CRC calculations
 
 
-# a calculation may use no, one, or many tables...
-
-abstract Tables{A<:U}
-
-immutable NoTables{A<:U}<:Tables{A} end
-
-immutable Multiple{A<:U}<:Tables{A} 
-    tables::Vector{Vector{A}}
-end
-
-immutable Single{A<:U}<:Tables{A}
-    table::Vector{A}
-end
-
-# when using multiple tables we need a related single table for the
-# "last few bytes"
-function Single{A<:U}(tables::Multiple{A})
-    Single{A}(tables.tables[1])
-end
-
-
 # a calculation may be direct (padded to the size of the accumulator)
 # or "reverse the rest of the world".  this depends on whether the
 # input input bytes are taken as given (Normal) or reflected.
@@ -303,9 +282,45 @@ function Normal{P<:U}(spec::Spec{P})
 end
 
 
+# a calculation may use no, one, or many tables...
+
+abstract Tables{A<:U}
+
+immutable NoTables{A<:U}<:Tables{A} 
+    NoTables(direcn::Direction{A}) = new()
+end
+
+immutable Multiple{A<:U}<:Tables{A} 
+    tables::Vector{Vector{A}}
+    function Multiple(direcn::Direction{A})
+        tables = Vector{A}[Array(A, 256) for _ in 1:sizeof(A)]
+        fill_table(direcn, tables[1])
+        for index in zero(Uint8):convert(Uint8, 255)
+            remainder = tables[1][index + 1]
+            for t in 2:sizeof(A)
+                # chaining gives the contribution of a byte to the
+                # remainder after being shifted through t other zero bytes
+                # (the different bytes are then combined with xor).
+                remainder = chain(direcn, tables[1], remainder)
+                tables[t][index + 1] = remainder
+            end
+        end
+        new(tables)
+    end
+end
+
+immutable Single{A<:U}<:Tables{A}
+    table::Vector{A}
+    # when using multiple tables we need a related single table for the
+    # "last few bytes"
+    Single(tables::Multiple{A}) = new(tables.tables[1])
+    Single(direcn::Direction{A}) = new(fill_table(direcn, Array(A, 256)))
+end
+
+
 # main entry point.  infer the algorithm from the spec and delegate on
 # so that we can capture A (the type of the accumulator).
-function crc{P<:U}(spec::Spec{P}; tables=Multiple)
+function crc{P<:U, T<:Tables}(spec::Spec{P}; tables::Type{T}=Multiple)
     direcn = spec.refin ? Reflected(spec) : Normal(spec)
     crc(spec, direcn; tables=tables)
 end
@@ -315,7 +330,7 @@ end
 function crc{P<:U, A<:U, T<:Tables}(spec::Spec{P}, direcn::Direction{A}; 
                                     tables::Type{T}=Multiple)
     remainder::A = direcn.init
-    tables::Tables = make_tables(direcn, tables)
+    tables = tables{A}(direcn)
     function handler(data::Vector{Uint8}; append=false)
         remainder = append ? remainder : direcn.init
         remainder = extend(direcn, tables, data, remainder)
@@ -338,37 +353,12 @@ function crc{P<:U, A<:U, T<:Tables}(spec::Spec{P}, direcn::Direction{A};
     handler
 end
 
-function make_tables{A<:U}(direcn::Direction{A}, ::Type{NoTables})
-    NoTables{A}()
-end
-
-function make_tables{A<:U}(direcn::Direction{A}, ::Type{Single})
-    tables = Single{A}(Array(A, 256))
-    fill_table(direcn, tables.table)
-    tables
-end
-
-function make_tables{A<:U}(direcn::Direction{A}, ::Type{Multiple})
-    tables = Multiple{A}(Vector{A}[Array(A, 256) for _ in 1:sizeof(A)])
-    fill_table(direcn, tables.tables[1])
-    for index in zero(Uint8):convert(Uint8, 255)
-        remainder = tables.tables[1][index + 1]
-        for t in 2:sizeof(A)
-            # chaining gives the contribution of a byte to the
-            # remainder after being shifted through t other zero bytes
-            # (the different bytes are then combined with xor).
-            remainder = chain(direcn, tables.tables[1], remainder)
-            tables.tables[t][index + 1] = remainder
-        end
-    end
-    tables
-end
-
 # the basic lookup table is just the remainder for each value
 function fill_table{A<:U}(direcn, table::Vector{A})
     for index in zero(Uint8):convert(Uint8, 255)
-        table[index + 1] = extend(direcn, NoTables{A}(), [index], zero(A))
+        table[index + 1] = extend(direcn, NoTables{A}(direcn), [index], zero(A))
     end
+    table
 end
 
 function chain{A<:U}(direcn::Normal{A}, table::Vector{A}, remainder::A)
@@ -502,7 +492,7 @@ end
 
 # short-circuit "all Uint8" avoiding a self-recursive loop below
 function extend(direcn::Direction{Uint8}, tables::Multiple{Uint8}, data::Vector{Uint8}, remainder::Uint8)
-    extend(direcn, Single(tables), data, remainder)
+    extend(direcn, Single{Uint8}(tables), data, remainder)
 end
 
 function extend{A<:U}(direcn::Direction{A}, tables::Multiple{A}, data::Vector{Uint8}, remainder::A)
@@ -512,7 +502,7 @@ function extend{A<:U}(direcn::Direction{A}, tables::Multiple{A}, data::Vector{Ui
     tail = length(data) % sizeof(A)
     remainder = extend(direcn, tables, reinterpret(A, data), remainder)
     # slurp up the final bytes that didn't fill a complete machine word.
-    extend(direcn, Single(tables), data[end-tail+1:end], remainder)
+    extend(direcn, Single{A}(tables), data[end-tail+1:end], remainder)
 end
 
 end
