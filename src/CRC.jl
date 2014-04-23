@@ -277,6 +277,22 @@ immutable Normal{A<:U}<:Direction{A}
     end
 end
 
+# the basic lookup table is just the remainder for each value
+function fill_table{A<:U}(direcn, table::Vector{A})
+    for index in zero(Uint8):convert(Uint8, 255)
+        table[index + 1] = extend(direcn, NoTables{A}(direcn), [index], zero(A))
+    end
+    table
+end
+
+function chain{A<:U}(direcn::Normal{A}, table::Vector{A}, remainder::A)
+    (remainder << 8) $ table[1 + ((remainder >>> direcn.pad_8) & 0xff)]
+end
+
+function chain{A<:U}(direcn::Reflected{A}, table::Vector{A}, remainder::A)
+    (remainder >>> 8) $ table[1 + (remainder & 0xff)]
+end
+
 
 # a calculation may use no, one, or many tables...
 
@@ -348,22 +364,6 @@ function crc{P<:U, A<:U, T<:Tables}(spec::Spec{P}, direcn::Direction{A};
         end
     end
     handler
-end
-
-# the basic lookup table is just the remainder for each value
-function fill_table{A<:U}(direcn, table::Vector{A})
-    for index in zero(Uint8):convert(Uint8, 255)
-        table[index + 1] = extend(direcn, NoTables{A}(direcn), [index], zero(A))
-    end
-    table
-end
-
-function chain{A<:U}(direcn::Normal{A}, table::Vector{A}, remainder::A)
-    (remainder << 8) $ table[1 + ((remainder >>> direcn.pad_8) & 0xff)]
-end
-
-function chain{A<:U}(direcn::Reflected{A}, table::Vector{A}, remainder::A)
-    (remainder >>> 8) $ table[1 + (remainder & 0xff)]
 end
 
 
