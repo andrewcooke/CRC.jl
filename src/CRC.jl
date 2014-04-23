@@ -254,13 +254,11 @@ abstract Direction{A<:U}
 immutable Reflected{A<:U}<:Direction{A}
     poly::A
     init::A
-end
-
-function Reflected{P<:U}(spec::Spec{P})
-    A = fastest(P, Uint8, Uint)  # Uint8 for the data, Uint for multiple tables
-    poly = reflect(spec.width, convert(A, spec.poly))
-    init = reflect(spec.width, convert(A, spec.init))
-    Reflected{A}(poly, init)
+    function Reflected(spec::Spec)
+        poly = reflect(spec.width, convert(A, spec.poly))
+        init = reflect(spec.width, convert(A, spec.init))
+        new(poly, init)
+    end
 end
 
 immutable Normal{A<:U}<:Direction{A}
@@ -269,16 +267,14 @@ immutable Normal{A<:U}<:Direction{A}
     carry::A
     pad_8::Int
     init::A
-end
-
-function Normal{P<:U}(spec::Spec{P})
-    A = fastest(P, Uint8, Uint)  # Uint8 for the data, Uint for multiple tables
-    pad_p = pad(A, spec.width)
-    poly = convert(A, spec.poly) << pad_p
-    carry = one(A) << pad(A, 1)
-    pad_8 = pad(A, 8)
-    init = convert(A, spec.init) << pad_p
-    Normal{A}(pad_p, poly, carry, pad_8, init)
+    function Normal(spec::Spec)
+        pad_p = pad(A, spec.width)
+        poly = convert(A, spec.poly) << pad_p
+        carry = one(A) << pad(A, 1)
+        pad_8 = pad(A, 8)
+        init = convert(A, spec.init) << pad_p
+        new(pad_p, poly, carry, pad_8, init)
+    end
 end
 
 
@@ -321,7 +317,8 @@ end
 # main entry point.  infer the algorithm from the spec and delegate on
 # so that we can capture A (the type of the accumulator).
 function crc{P<:U, T<:Tables}(spec::Spec{P}; tables::Type{T}=Multiple)
-    direcn = spec.refin ? Reflected(spec) : Normal(spec)
+    A = fastest(P, Uint, Uint8)
+    direcn = spec.refin ? Reflected{A}(spec) : Normal{A}(spec)
     crc(spec, direcn; tables=tables)
 end
 
