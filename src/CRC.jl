@@ -331,18 +331,10 @@ immutable Single{A<:U}<:Tables{A}
 end
 
 
-# main entry point.  infer the algorithm from the spec and delegate on
-# so that we can capture A (the type of the accumulator).
+# main entry point.
 function crc{P<:U, T<:Tables}(spec::Spec{P}; tables::Type{T}=Multiple)
     A = fastest(P, Uint, Uint8)
     direcn = spec.refin ? Backwards{A}(spec) : Forwards{A}(spec)
-    crc(spec, direcn; tables=tables)
-end
-
-# return a function that evaluates the CRC against the cached lookup
-# tables (if used).
-function crc{P<:U, A<:U, T<:Tables}(spec::Spec{P}, direcn::Direction{A}; 
-                                    tables::Type{T}=Multiple)
     remainder::A = direcn.init
     tables = tables{A}(direcn)
     function handler(data::Vector{Uint8}; append=false)
