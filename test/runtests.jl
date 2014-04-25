@@ -78,11 +78,18 @@ function time_padded()
     ours = crc(CRC_64)
     data = rand(Uint8, 300_000_000)
     @assert ours(CHECK) == CRC_64.check
-    @time ours(data)    # 0.95
+    @time ours(data)
 end
 
+function time_no_tables()
+    ours = crc(CRC_15, tables=NoTables)
+    data = rand(Uint8, 30_000_000)
+    @assert ours(CHECK) == CRC_15.check
+    @time ours(data)
+end
 
 srand(0)  # repeatable results
 
 time_libz()
 time_padded()
+time_no_tables()
