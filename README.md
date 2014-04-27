@@ -69,7 +69,7 @@ Spec{Uint8}(7,0x09,0x00,false,false,0x00,0x75)
 
 ### Use
 
-The `main(ARGS)` fnuction is a simple utility for calculating the
+The `main(ARGS)` function is a simple utility for calculating the
 checksum of files:
 
 ```
