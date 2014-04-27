@@ -117,7 +117,7 @@ alias crc='julia -e "using CRC; main(ARGS)"'
 
 ## Other CRC Packages
 
-* {CRC32.jl](https://github.com/fhs/CRC32.jl) is a simple implementation of
+* [CRC32.jl](https://github.com/fhs/CRC32.jl) is a simple implementation of
   CRC_32 - it is easier to understand than this code, but slower, and only
   supports a single CRC algorithm.
 
