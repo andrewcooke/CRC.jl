@@ -67,8 +67,6 @@ Spec{Uint8}(7,0x09,0x00,false,false,0x00,0x75)
 
 ## From the Command Line
 
-### Use
-
 The `main(ARGS)` function is a simple utility for calculating the
 checksum of files:
 
