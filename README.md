@@ -98,7 +98,7 @@ andrew@laptop:~/project/CRC> crc /tmp/crc.txt
 
 Note that the result matches the `check` value for the algorithm.
 
-### Installation
+## Installation
 
 Julia can be downloaded [here](http://julialang.org/downloads/).  Once
 Julia is working you can install this package using:
