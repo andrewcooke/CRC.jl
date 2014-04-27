@@ -200,7 +200,7 @@ function reflect_bits(n::Uint8)
     (n & 0xaa) >>> 1 | (n & 0x55) << 1;
 end
 
-REFLECT_8 = Uint8[reflect_bits(i) for i in 0x00:0xff]
+const REFLECT_8 = Uint8[reflect_bits(i) for i in 0x00:0xff]
 
 reflect(u::Uint8) = REFLECT_8[u+1]
 
