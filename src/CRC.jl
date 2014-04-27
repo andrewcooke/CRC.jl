@@ -29,10 +29,11 @@ export crc, make_tables, spec, CHECK, NoTables, Single, Multiple,
        CRC_24, CRC_24_FLEXRAY_A, CRC_24_FLEXRAY_B, CRC_31_PHILIPS,
        CRC_32, CRC_32_BZIP2, CRC_32_C, CRC_32_D, CRC_32_MPEG_2,
        CRC_32_POSIX, CRC_32_Q, CRC_32_JAMCRC, CRC_32_XFER, CRC_40_GSM,
-       CRC_64, CRC_64_WE, CRC_64_XZ, CRC_82_DARC, ALL
+       CRC_64, CRC_64_WE, CRC_64_XZ, CRC_82_DARC, ALL, main
 
 import Base.Cartesian: @nexprs
 import Base: ==, isless, print
+using ArgParse
 
 typealias U Unsigned
 
@@ -188,6 +189,7 @@ ALL = {:CRC_3_ROHC=>CRC_3_ROHC, :CRC_4_ITU=>CRC_4_ITU,
        :CRC_40_GSM=>CRC_40_GSM, :CRC_64=>CRC_64,
        :CRC_64_WE=>CRC_64_WE, :CRC_64_XZ=>CRC_64_XZ,
        :CRC_82_DARC=>CRC_82_DARC}
+
 
 
 # --- Utilities
@@ -494,6 +496,74 @@ function extend{A<:U}(direcn::Direction{A}, tables::Multiple{A}, data::Vector{Ui
     remainder = extend(direcn, tables, reinterpret(A, data), remainder)
     # slurp up the final bytes that didn't fill a complete machine word.
     extend(direcn, Single{A}(tables), data[end-tail+1:end], remainder)
+end
+
+
+
+# ---- Command line
+
+
+# julia -e "using CRC; main(ARGS)" ...
+
+function main(args)
+
+    s = ArgParseSettings("Calculate the CRC for the given files")
+
+    @add_arg_table s begin
+        "--list", "-l"
+        help = "list available CRC algorithms"
+        action = :store_true
+        "--decimal", "-d"
+        help = "show checksums as decimal values (default is hex)"
+        action = :store_true
+        "--crc", "-c"
+        help = "name the CRC to use"
+        default = "CRC_32"
+        "--append", "-a"
+        help = "combine the data from all files"
+        action = :store_true
+        "files"
+        help = "the files to read (- for stdin)"
+        nargs = '*'
+    end
+
+    parsed_args = parse_args(args, s)
+
+    if parsed_args["list"]
+        names = sort(collect(keys(ALL)), by=n->ALL[n])
+        for name in names
+            @printf("%s %s\n", name, ALL[name])
+        end
+    end
+
+    name = symbol(parsed_args["crc"])
+    if !haskey(ALL, name)
+        error("CRC $name is not defined")
+    end
+
+    append = parsed_args["append"]
+    spec = ALL[name]
+    c = crc(spec)
+    if parsed_args["decimal"]
+        fmt = x -> dec(x)
+    else
+        fmt = x -> "0x" * hex(x, 1 + div(spec.width-1, 4))
+    end
+    sum = 0
+    for file in parsed_args["files"]
+        if file == "-"
+            sum = c(STDIN, append=append)
+        else
+            sum = c(file, append=append)
+        end
+        if !append
+            println("$(fmt(sum)) $file")
+        end
+    end
+    if append
+        println("$(fmt(sum))")
+    end
+
 end
 
 end
