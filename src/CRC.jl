@@ -1,4 +1,3 @@
-
 # calculate crc checksums for data.  this process is closely related
 # to the routines in IntModN (particularly GF2Poly), but the
 # traditional implementations are optimized to the point where
@@ -333,8 +332,7 @@ function chain{A<:U}(direcn::Backwards{A}, table::Vector{A}, remainder::A)
 end
 
 
-# main entry point.  infer the algorithm from the spec and delegate on
-# to avoid some kind of type inference bug.
+# main entry point.
 function crc{P<:U, T<:Tables}(spec::Spec{P}; tables::Type{T}=Multiple)
     A = fastest(P, tables == Multiple ? Uint : Uint8)
     direcn = spec.refin ? Backwards{A}(spec) : Forwards{A}(spec)
