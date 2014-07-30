@@ -148,8 +148,8 @@ alias crc='julia -e "using CRC; main(ARGS)"'
 
 * 1.0.0 - 2014-06-31 Changed handler method so that a `String` is converted to
   bytes (instead of being treated as a file path).  This *will break* existing
-  code that uses the current handler, but I hopeI don't have many users (!)
-  (particularly users that are calling that method).
+  code that uses the current handler (sorry!), but I hope I don't have many
+  users (particularly users that are calling that method)!
 
 [![Build
 Status](https://travis-ci.org/andrewcooke/CRC.jl.png)](https://travis-ci.org/andrewcooke/CRC.jl)
