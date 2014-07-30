@@ -37,6 +37,23 @@ returned function (here, `c()`).  Re-using `c()` to calculate a series
 of CRCs is therefore more efficient than starting with `crc()` each
 time.
 
+### Within Your Program
+
+The same example as above, but inside your program, would look like this:
+
+```
+using CRC
+...
+crc32 = crc(CRC_32)  # create our own crc function, just once
+...
+function some_func(...)
+    ...
+    x = crc32(data)  # use the crc function created above, many times
+    ...
+end
+...
+```
+
 ### Force Direct (Tableless) Calculation
 
 ```
@@ -124,6 +141,15 @@ alias crc='julia -e "using CRC; main(ARGS)"'
   speed to this package (and wil be faster for short, single uses,
   because the lookup table is pre-caclculated), but only supports that
   single algorithm.
+
+## Versions
+
+* 0.2.0 - Initial release(s).
+
+* 1.0.0 - 2014-06-31 Changed handler method so that a `String` is converted to
+  bytes (instead of being treated as a file path).  This *will break* existing
+  code that uses the current handler, but I hopeI don't have many users (!)
+  (particularly users that are calling that method).
 
 [![Build
 Status](https://travis-ci.org/andrewcooke/CRC.jl.png)](https://travis-ci.org/andrewcooke/CRC.jl)

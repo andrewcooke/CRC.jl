@@ -47,7 +47,13 @@ function test_all()
     end
 end
 
+function test_string()
+    crc32 = crc(CRC_32)
+    @test crc32("abcxyz") == 0xacc462e9
+end
+
 function tests()
+    test_string()
     test_crc(CRC_3_ROHC)
     test_crc(CRC_4_ITU)
     test_crc(CRC_7_ROHC)

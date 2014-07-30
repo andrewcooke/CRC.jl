@@ -351,11 +351,17 @@ function crc{P<:U, T<:Tables}(spec::Spec{P}; tables::Type{T}=Multiple)
         end
         finalize(spec, direcn, remainder)
     end
-    function handler(path::String; append=false, buflen=1000000)
-        # TODO - could get size and then mmap instead
-        open(path, "r") do f
-            handler(f, append=append, buflen=buflen)
-        end
+    # see https://github.com/andrewcooke/CRC.jl/issues/2
+    # handling strings as data is a much more common use case, i think.
+    # i'm really sorry if this breaks someone's code - i fucked up here.
+#    function handler(path::String; append=false, buflen=1000000)
+#        # TODO - could get size and then mmap instead
+#        open(path, "r") do f
+#            handler(f, append=append, buflen=buflen)
+#        end
+#    end
+    function handler(data::String; append=false)
+        handler(convert(Vector{Uint8}, data), append=append)
     end
     handler
 end
@@ -552,7 +558,9 @@ function main(args)
         if file == "-"
             sum = c(STDIN, append=append)
         else
-            sum = c(file, append=append)
+            open(file, "r") do f
+                sum = c(f, append=append)
+            end
         end
         if !append
             println("$(fmt(sum)) $file")
