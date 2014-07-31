@@ -151,24 +151,6 @@ alias crc='julia -e "using CRC; main(ARGS)"'
   code that uses the current handler (sorry!), but I hope I don't have many
   users (particularly users that are calling that method)!
 
-## FAQ
-
-**Why don't you create the `crc32()` function for me?**
-
-This library does not pre-define the functions because:
-
-* Each CRC would need its own lookup tables, which takes time and memory.
-
-* Using an internal mutable variable to cache the tables on first use make the
-  code less reliable (the CRC library is "functional" in approach),
-  complicates timing and raises thread safety issues.
-
-* The creation of the tables depends on optional arguments to `crc()` (see the
-  source for details); mixing these options with those for calculating the CRC
-  would complicate the API.
-
-* This pattern communicates the associated costs to experienced programmers.
-
 ## Build Status
 
 [![Build
