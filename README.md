@@ -1,8 +1,8 @@
 # CRC
 
 This is a [Julia](http://julialang.org/) module for calculating Cyclic
-Redundancy Checksums (CRCs).  It also contains a command line tool for
-calculating the CRC of files.
+Redundancy Checksums (CRCs).  It also contains a [command
+line](#from-the-command-line) tool for calculating the CRC of files.
 
 * All the algoirthms in the [RevEng
   Catalogue](http://reveng.sourceforge.net/crc-catalogue) are supported.
