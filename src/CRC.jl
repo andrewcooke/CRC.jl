@@ -43,7 +43,7 @@ typealias U Unsigned
 
 CHECK = b"123456789"   # universal check vector
 
-type Spec{P<:U}
+immutable Spec{P<:U}
     width::Int    # polynomial degree
     poly::P       # generating poly with msb missing
     init::P       # initial remainder
