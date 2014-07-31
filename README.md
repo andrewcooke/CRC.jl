@@ -25,17 +25,16 @@ line](#from-the-command-line) tool for calculating the CRC of files.
 ```
 julia> using CRC
 
-julia> c = crc(CRC_32)
+julia> crc32 = crc(CRC_32)
 (anonymous function)
 
-julia> c(b"123456789")
+julia> crc32(b"123456789")
 0xcbf43926
 ```
 
 The function `crc()` constructs a lookup table, which is cached in the
-returned function (here, `c()`).  Re-using `c()` to calculate a series
-of CRCs is therefore more efficient than starting with `crc()` each
-time.
+returned function (here, `crc32()`).  Re-using `crc32()` to calculate a series
+of CRCs is therefore more efficient than starting with `crc()` each time.
 
 ### Within Your Program
 
