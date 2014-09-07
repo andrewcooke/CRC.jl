@@ -138,7 +138,7 @@ alias crc='julia -e "using CRC; main(ARGS)"'
 * [libz](https://github.com/dcjones/Zlib.jl) includes (amongst many
   other things) a wrapper to a C version of CRC_32 - it is similar in
   speed to this package (and wil be faster for short, single uses,
-  because the lookup table is pre-caclculated), but only supports that
+  because the lookup table is pre-calculated), but only supports that
   single algorithm.
 
 ## Versions
