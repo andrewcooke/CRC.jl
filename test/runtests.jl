@@ -1,7 +1,6 @@
 
 using CRC
 using Base.Test
-#using IntModN
 import Zlib: crc32
 
 

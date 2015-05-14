@@ -14,5 +14,5 @@ before_install:
   - sudo apt-get install libpcre3-dev julia git -y
   - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
 script:
-  - julia -e 'Pkg.init(); Pkg.clone("https://github.com/andrewcooke/IntModN.jl"); Pkg.add("Zlib")'
+  - julia -e 'Pkg.init(); Pkg.add("Zlib")'
   - julia -e 'Pkg.init(); Pkg.clone(pwd()); Pkg.test("CRC")'
