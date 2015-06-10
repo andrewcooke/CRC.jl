@@ -1,3 +1,8 @@
+[![Build
+Status](https://travis-ci.org/andrewcooke/CRC.jl.png)](https://travis-ci.org/andrewcooke/CRC.jl)
+[![Coverage Status](https://coveralls.io/repos/andrewcooke/CRC.jl/badge.svg)](https://coveralls.io/r/andrewcooke/CRC.jl)
+[![CRC](http://pkg.julialang.org/badges/CRC_release.svg)](http://pkg.julialang.org/?pkg=CRC&ver=release)
+
 # CRC
 
 This is a [Julia](http://julialang.org/) module for calculating Cyclic
@@ -149,10 +154,4 @@ alias crc='julia -e "using CRC; main(ARGS)"'
   bytes (instead of being treated as a file path).  This *will break* existing
   code that uses the current handler (sorry!), but I hope I don't have many
   users (particularly users that are calling that method)!
-
-## Build Status
-
-[![Build
-Status](https://travis-ci.org/andrewcooke/CRC.jl.png)](https://travis-ci.org/andrewcooke/CRC.jl)
-Julia 0.3 (trunk).
 
