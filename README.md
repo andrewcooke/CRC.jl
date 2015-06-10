@@ -148,10 +148,11 @@ alias crc='julia -e "using CRC; main(ARGS)"'
 
 ## Versions
 
-* 0.2.0 - Initial release(s).
+* 1.1.0 - 2015-06-09 Small fixes for Julia 0.4, Travis + Coverage.
 
 * 1.0.0 - 2014-06-31 Changed handler method so that a `String` is converted to
   bytes (instead of being treated as a file path).  This *will break* existing
   code that uses the current handler (sorry!), but I hope I don't have many
   users (particularly users that are calling that method)!
 
+* 0.2.0 - Initial release(s).
