@@ -84,7 +84,7 @@ end
 function time_no_tables()
     println("no_tables")
     ours = crc(CRC_15, tables=NoTables)
-    data = rand(Uint8, SIZE//10)
+    data = rand(Uint8, int(SIZE//10))
     @assert ours(CHECK) == CRC_15.check
     @time ours(data)
 end
