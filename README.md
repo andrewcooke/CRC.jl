@@ -5,9 +5,10 @@ Status](https://travis-ci.org/andrewcooke/CRC.jl.png)](https://travis-ci.org/and
 
 # CRC
 
-**WARNING** - current Julia 0.4 trunk is 40x slower than 0.3 when running CRC
-tests, and is allocating a huge amount of memory.  Since 0.4 is in development
-I guess this is temporary, but please do not expect "normal" speed on 0.4 with
+**WARNING** - current Julia 0.4 trunk is 40x slower than 0.3 when
+running CRC tests, and is allocating a huge amount of memory [update:
+only on some hardware types].  Since 0.4 is in development I guess
+this is temporary, but please do not expect "normal" speed on 0.4 with
 this library - 2015-06-09
 
 This is a [Julia](http://julialang.org/) module for calculating Cyclic
