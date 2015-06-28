@@ -1,3 +1,4 @@
+
 # calculate crc checksums for data.  this process is closely related
 # to the routines in IntModN (particularly GF2Poly), but the
 # traditional implementations are optimized to the point where
@@ -151,50 +152,71 @@ CRC_64_WE =          spec(0x42f0e1eba9ea3693, 0xffffffffffffffff, false, false, 
 CRC_64_XZ =          spec(0x42f0e1eba9ea3693, 0xffffffffffffffff, true,  true,  0xffffffffffffffff, 0x995dc9bbdf1939fa)
 CRC_82_DARC =        spec(82, 0x0308c0111011401440411, 0x000000000000000000000, true,  true,   0x000000000000000000000, 0x09ea83f625023801fd612)
 
-@compat ALL = Dict{Any,Any}(:CRC_3_ROHC=>CRC_3_ROHC, :CRC_4_ITU=>CRC_4_ITU,
-                    :CRC_5_EPC=>CRC_5_EPC, :CRC_5_ITU=>CRC_5_ITU,
-                    :CRC_5_USB=>CRC_5_USB,
-                    :CRC_6_CDMA2000_A=>CRC_6_CDMA2000_A,
-                    :CRC_6_CDMA2000_B=>CRC_6_CDMA2000_B,
-                    :CRC_6_DARC=>CRC_6_DARC, :CRC_6_ITU=>CRC_6_ITU,
-                    :CRC_7=>CRC_7, :CRC_7_ROHC=>CRC_7_ROHC, :CRC_8=>CRC_8,
-                    :CRC_8_CDMA2000=>CRC_8_CDMA2000, :CRC_8_DARC=>CRC_8_DARC,
-                    :CRC_8_DVB_S2=>CRC_8_DVB_S2, :CRC_8_EBU=>CRC_8_EBU,
-                    :CRC_8_I_CODE=>CRC_8_I_CODE, :CRC_8_ITU=>CRC_8_ITU,
-                    :CRC_8_MAXIM=>CRC_8_MAXIM, :CRC_8_ROHC=>CRC_8_ROHC,
-                    :CRC_8_WCDMA=>CRC_8_WCDMA, :CRC_10=>CRC_10,
-                    :CRC_10_CDMA2000=>CRC_10_CDMA2000, :CRC_11=>CRC_11,
-                    :CRC_12_3GPP=>CRC_12_3GPP,
-                    :CRC_12_CDMA2000=>CRC_12_CDMA2000,
-                    :CRC_12_DECT=>CRC_12_DECT, :CRC_13_BBC=>CRC_13_BBC,
-                    :CRC_14_DARC=>CRC_14_DARC, :CRC_15=>CRC_15,
-                    :CRC_15_MPT1327=>CRC_15_MPT1327, :CRC_16_ARC=>CRC_16_ARC,
-                    :CRC_16_AUG_CCITT=>CRC_16_AUG_CCITT,
-                    :CRC_16_BUYPASS=>CRC_16_BUYPASS,
-                    :CRC_16_CCITT_FALSE=>CRC_16_CCITT_FALSE,
-                    :CRC_16_CDMA2000=>CRC_16_CDMA2000,
-                    :CRC_16_DDS_110=>CRC_16_DDS_110,
-                    :CRC_16_DECT_R=>CRC_16_DECT_R,
-                    :CRC_16_DECT_X=>CRC_16_DECT_X, :CRC_16_DNP=>CRC_16_DNP,
-                    :CRC_16_EN_13757=>CRC_16_EN_13757,
-                    :CRC_16_GENIBUS=>CRC_16_GENIBUS,
-                    :CRC_16_MAXIM=>CRC_16_MAXIM,
-                    :CRC_16_RIELLO=>CRC_16_RIELLO,
-                    :CRC_16_TELEDISK=>CRC_16_TELEDISK,
-                    :CRC_16_USB=>CRC_16_USB, :CRC_16_CRC_A=>CRC_16_CRC_A,
-                    :CRC_16_KERMIT=>CRC_16_KERMIT,
-                    :CRC_16_MODBUS=>CRC_16_MODBUS, :CRC_16_X_25=>CRC_16_X_25,
-                    :CRC_16_XMODEM=>CRC_16_XMODEM, :CRC_24=>CRC_24,
-                    :CRC_24_FLEXRAY_A=>CRC_24_FLEXRAY_A,
-                    :CRC_24_FLEXRAY_B=>CRC_24_FLEXRAY_B,
-                    :CRC_31_PHILIPS=>CRC_31_PHILIPS, :CRC_32=>CRC_32,
-                    :CRC_32_BZIP2=>CRC_32_BZIP2, :CRC_32_C=>CRC_32_C,
-                    :CRC_32_D=>CRC_32_D, :CRC_32_MPEG_2=>CRC_32_MPEG_2,
-                    :CRC_32_POSIX=>CRC_32_POSIX, :CRC_32_Q=>CRC_32_Q,
-                    :CRC_32_JAMCRC=>CRC_32_JAMCRC, :CRC_32_XFER=>CRC_32_XFER,
-                    :CRC_40_GSM=>CRC_40_GSM, :CRC_64=>CRC_64,
-                    :CRC_64_WE=>CRC_64_WE, :CRC_64_XZ=>CRC_64_XZ,
-                    :CRC_82_DARC=>CRC_82_DARC)
+@compat ALL = Dict{Any,Any}(:CRC_3_ROHC=>CRC_3_ROHC,
+                            :CRC_4_ITU=>CRC_4_ITU,
+                            :CRC_5_EPC=>CRC_5_EPC,
+                            :CRC_5_ITU=>CRC_5_ITU,
+                            :CRC_5_USB=>CRC_5_USB,
+                            :CRC_6_CDMA2000_A=>CRC_6_CDMA2000_A,
+                            :CRC_6_CDMA2000_B=>CRC_6_CDMA2000_B,
+                            :CRC_6_DARC=>CRC_6_DARC,
+                            :CRC_6_ITU=>CRC_6_ITU, :CRC_7=>CRC_7,
+                            :CRC_7_ROHC=>CRC_7_ROHC, :CRC_8=>CRC_8,
+                            :CRC_8_CDMA2000=>CRC_8_CDMA2000,
+                            :CRC_8_DARC=>CRC_8_DARC,
+                            :CRC_8_DVB_S2=>CRC_8_DVB_S2,
+                            :CRC_8_EBU=>CRC_8_EBU,
+                            :CRC_8_I_CODE=>CRC_8_I_CODE,
+                            :CRC_8_ITU=>CRC_8_ITU,
+                            :CRC_8_MAXIM=>CRC_8_MAXIM,
+                            :CRC_8_ROHC=>CRC_8_ROHC,
+                            :CRC_8_WCDMA=>CRC_8_WCDMA,
+                            :CRC_10=>CRC_10,
+                            :CRC_10_CDMA2000=>CRC_10_CDMA2000,
+                            :CRC_11=>CRC_11,
+                            :CRC_12_3GPP=>CRC_12_3GPP,
+                            :CRC_12_CDMA2000=>CRC_12_CDMA2000,
+                            :CRC_12_DECT=>CRC_12_DECT,
+                            :CRC_13_BBC=>CRC_13_BBC,
+                            :CRC_14_DARC=>CRC_14_DARC,
+                            :CRC_15=>CRC_15,
+                            :CRC_15_MPT1327=>CRC_15_MPT1327,
+                            :CRC_16_ARC=>CRC_16_ARC,
+                            :CRC_16_AUG_CCITT=>CRC_16_AUG_CCITT,
+                            :CRC_16_BUYPASS=>CRC_16_BUYPASS,
+                            :CRC_16_CCITT_FALSE=>CRC_16_CCITT_FALSE,
+                            :CRC_16_CDMA2000=>CRC_16_CDMA2000,
+                            :CRC_16_DDS_110=>CRC_16_DDS_110,
+                            :CRC_16_DECT_R=>CRC_16_DECT_R,
+                            :CRC_16_DECT_X=>CRC_16_DECT_X,
+                            :CRC_16_DNP=>CRC_16_DNP,
+                            :CRC_16_EN_13757=>CRC_16_EN_13757,
+                            :CRC_16_GENIBUS=>CRC_16_GENIBUS,
+                            :CRC_16_MAXIM=>CRC_16_MAXIM,
+                            :CRC_16_RIELLO=>CRC_16_RIELLO,
+                            :CRC_16_TELEDISK=>CRC_16_TELEDISK,
+                            :CRC_16_USB=>CRC_16_USB,
+                            :CRC_16_CRC_A=>CRC_16_CRC_A,
+                            :CRC_16_KERMIT=>CRC_16_KERMIT,
+                            :CRC_16_MODBUS=>CRC_16_MODBUS,
+                            :CRC_16_X_25=>CRC_16_X_25,
+                            :CRC_16_XMODEM=>CRC_16_XMODEM,
+                            :CRC_24=>CRC_24,
+                            :CRC_24_FLEXRAY_A=>CRC_24_FLEXRAY_A,
+                            :CRC_24_FLEXRAY_B=>CRC_24_FLEXRAY_B,
+                            :CRC_31_PHILIPS=>CRC_31_PHILIPS,
+                            :CRC_32=>CRC_32,
+                            :CRC_32_BZIP2=>CRC_32_BZIP2,
+                            :CRC_32_C=>CRC_32_C, :CRC_32_D=>CRC_32_D,
+                            :CRC_32_MPEG_2=>CRC_32_MPEG_2,
+                            :CRC_32_POSIX=>CRC_32_POSIX,
+                            :CRC_32_Q=>CRC_32_Q,
+                            :CRC_32_JAMCRC=>CRC_32_JAMCRC,
+                            :CRC_32_XFER=>CRC_32_XFER,
+                            :CRC_40_GSM=>CRC_40_GSM, :CRC_64=>CRC_64,
+                            :CRC_64_WE=>CRC_64_WE,
+                            :CRC_64_XZ=>CRC_64_XZ,
+                            :CRC_82_DARC=>CRC_82_DARC)
 
 
 
@@ -358,15 +380,6 @@ function crc{P<:U, T<:Tables}(spec::Spec{P}; tables::Type{T}=Multiple)
         end
         finalize(spec, direcn, remainder)
     end
-    # see https://github.com/andrewcooke/CRC.jl/issues/2
-    # handling strings as data is a much more common use case, i think.
-    # i'm really sorry if this breaks someone's code - i fucked up here.
-#    function handler(path::String; append=false, buflen=1000000)
-#        # TODO - could get size and then mmap instead
-#        open(path, "r") do f
-#            handler(f, append=append, buflen=buflen)
-#        end
-#    end
     function handler(data::String; append=false)
         handler(convert(Vector{Uint8}, data), append=append)
     end
