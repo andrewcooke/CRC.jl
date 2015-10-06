@@ -1,5 +1,6 @@
 
 using CRC
+using Compat
 using Base.Test
 import Zlib: crc32
 
@@ -21,7 +22,7 @@ function test_all()
     print("all")
     bad = Set()
     for _ in 1:10
-        data = rand(Uint8, rand(100:200))
+        data = rand(UInt8, rand(100:200))
         for (name, spec) in ALL
             if ! in(spec, bad)
                 r1 = crc(spec, tables=NoTables)(data)
@@ -70,7 +71,7 @@ SIZE = 300_000
 
 function time_libz()
     println("libz")
-    data = rand(Uint8, SIZE)
+    data = rand(UInt8, SIZE)
     check = crc32(data)
     @time crc32(data)
     for tables in (Single, Multiple)
@@ -84,7 +85,7 @@ end
 function time_no_tables()
     println("no_tables")
     ours = crc(CRC_15, tables=NoTables)
-    data = rand(Uint8, int(SIZE//10))
+    data = rand(UInt8, round(Int, SIZE//10))
     @assert ours(CHECK) == CRC_15.check
     @time ours(data)
 end
@@ -92,7 +93,7 @@ end
 function time_padded()
     println("padded")
     ours = crc(CRC_64)
-    data = rand(Uint8, SIZE)
+    data = rand(UInt8, SIZE)
     @assert ours(CHECK) == CRC_64.check
     @time ours(data)
 end
