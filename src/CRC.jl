@@ -224,17 +224,17 @@ CRC_82_DARC =        spec(82, 0x0308c0111011401440411, 0x000000000000000000000, 
 
 
 # http://stackoverflow.com/questions/2602823/in-c-c-whats-the-simplest-way-to-reverse-the-order-of-bits-in-a-byte
-function reflect_bits(n::Uint8)
+function reflect_bits(n::UInt8)
     n = (n & 0xf0) >>> 4 | (n & 0x0f) << 4;
     n = (n & 0xcc) >>> 2 | (n & 0x33) << 2;
     (n & 0xaa) >>> 1 | (n & 0x55) << 1;
 end
 
-const REFLECT_8 = Uint8[reflect_bits(i) for i in 0x00:0xff]
+const REFLECT_8 = UInt8[reflect_bits(i) for i in 0x00:0xff]
 
-reflect(u::Uint8) = REFLECT_8[u+1]
+reflect(u::UInt8) = REFLECT_8[u+1]
 
-for (T,S) in ((Uint16, Uint8), (Uint32, Uint16), (Uint64, Uint32), (Uint128, Uint64))
+for (T,S) in ((UInt16, UInt8), (UInt32, UInt16), (UInt64, UInt32), (UInt128, UInt64))
     n = 8 * sizeof(S)
     mask::S = -one(S)
     @eval reflect(u::$T) = (convert($T, reflect(convert($S, u & $mask))) << $n) | reflect(convert($S, (u >>> $n) & $mask))
@@ -258,8 +258,8 @@ end
 
 function fastest(T, TS...)
     L = largest(T, TS...)
-    if L == Uint32 && Uint32 != Uint
-        Uint64  # round up for speed
+    if L == UInt32 && UInt32 != UInt
+        UInt64  # round up for speed
     else
         L
     end
@@ -322,7 +322,7 @@ immutable Multiple{A<:U}<:Tables{A}
     function Multiple(direcn::Direction{A})
         tables = Vector{A}[Array(A, 256) for _ in 1:sizeof(A)]
         fill_table(direcn, tables[1])
-        for index in zero(Uint8):convert(Uint8, 255)
+        for index in zero(UInt8):convert(UInt8, 255)
             remainder = tables[1][index + 1]
             for t in 2:sizeof(A)
                 # chaining gives the contribution of a byte to the
@@ -346,7 +346,7 @@ end
 
 # the basic lookup table is just the remainder for each value
 function fill_table{A<:U}(direcn, table::Vector{A})
-    for index in zero(Uint8):convert(Uint8, 255)
+    for index in zero(UInt8):convert(UInt8, 255)
         table[index + 1] = extend(direcn, NoTables{A}(direcn), [index], zero(A))
     end
     table
@@ -363,17 +363,17 @@ end
 
 # main entry point.
 function crc{P<:U, T<:Tables}(spec::Spec{P}; tables::Type{T}=Multiple)
-    A = fastest(P, tables == Multiple ? Uint : Uint8)
+    A = fastest(P, tables == Multiple ? UInt : UInt8)
     direcn = spec.refin ? Backwards{A}(spec) : Forwards{A}(spec)
     remainder::A = direcn.init
     tables = tables{A}(direcn)
-    function handler(data::Vector{Uint8}; append=false)
+    function handler(data::Vector{UInt8}; append=false)
         remainder = append ? remainder : direcn.init
         remainder = extend(direcn, tables, data, remainder)
         finalize(spec, direcn, remainder)
     end
     function handler(io::IO; append=false, buflen=1000000)
-        buffer = Array(Uint8, buflen)
+        buffer = Array(UInt8, buflen)
         remainder = append ? remainder : direcn.init
         while (nb = readbytes!(io, buffer)) > 0
             remainder = extend(direcn, tables, buffer[1:nb], remainder)
@@ -381,7 +381,7 @@ function crc{P<:U, T<:Tables}(spec::Spec{P}; tables::Type{T}=Multiple)
         finalize(spec, direcn, remainder)
     end
     function handler(data::String; append=false)
-        handler(convert(Vector{Uint8}, data), append=append)
+        handler(convert(Vector{UInt8}, data), append=append)
     end
     handler
 end
@@ -408,8 +408,8 @@ end
 
 const UNROLL = 16  # only get small improvements past this
 
-function extend{A<:U}(direcn::Forwards{A}, tables::NoTables, data::Vector{Uint8}, remainder::A)
-    for word::Uint8 in data
+function extend{A<:U}(direcn::Forwards{A}, tables::NoTables, data::Vector{UInt8}, remainder::A)
+    for word::UInt8 in data
         remainder::A = remainder $ (convert(A, word) << direcn.pad_8)
         for _ in 1:8
             if remainder & direcn.carry == direcn.carry
@@ -422,16 +422,16 @@ function extend{A<:U}(direcn::Forwards{A}, tables::NoTables, data::Vector{Uint8}
     remainder
 end
 
-function extend{A<:U}(direcn::Forwards{A}, tables::Single{A}, data::Vector{Uint8}, remainder::A)
+function extend{A<:U}(direcn::Forwards{A}, tables::Single{A}, data::Vector{UInt8}, remainder::A)
     for i in 1:length(data)
-        @inbounds word::Uint8 = data[i]
+        @inbounds word::UInt8 = data[i]
         remainder::A = remainder $ (convert(A, word) << direcn.pad_8)
         remainder = (remainder << 8) $ tables.table[1 + remainder >>> direcn.pad_8]
     end
     remainder
 end
 
-for A in (Uint16, Uint32, Uint64, Uint128)
+for A in (UInt16, UInt32, UInt64, UInt128)
     n_tables = sizeof(A)
     @eval begin
         function extend(direcn::Forwards{$A}, tables::Multiple{$A}, data::Vector{$A}, remainder::$A)
@@ -458,8 +458,8 @@ for A in (Uint16, Uint32, Uint64, Uint128)
     end
 end
 
-function extend{A<:U}(direcn::Backwards{A}, tables::NoTables, data::Vector{Uint8}, remainder::A)
-    for word::Uint8 in data
+function extend{A<:U}(direcn::Backwards{A}, tables::NoTables, data::Vector{UInt8}, remainder::A)
+    for word::UInt8 in data
         remainder::A = remainder $ convert(A, word)
         for _ in 1:8
             if remainder & one(A) == one(A)
@@ -472,9 +472,9 @@ function extend{A<:U}(direcn::Backwards{A}, tables::NoTables, data::Vector{Uint8
     remainder
 end
 
-function extend{A<:U}(direcn::Backwards{A}, tables::Single{A}, data::Vector{Uint8}, remainder::A)
+function extend{A<:U}(direcn::Backwards{A}, tables::Single{A}, data::Vector{UInt8}, remainder::A)
     for i in 1:length(data)
-        @inbounds word::Uint8 = data[i]
+        @inbounds word::UInt8 = data[i]
         remainder::A = remainder $ (convert(A, word))
         remainder = (remainder >>> 8) $ tables.table[1 + remainder & 0xff]
     end
@@ -483,7 +483,7 @@ end
 
 # generate code for processing a bunch of bytes in a single machine
 # word, using multiple tables.  stolen from libz.
-for A in (Uint16, Uint32, Uint64, Uint128)
+for A in (UInt16, UInt32, UInt64, UInt128)
     n_tables = sizeof(A)
     @eval begin
         function extend(direcn::Backwards{$A}, tables::Multiple{$A}, data::Vector{$A}, remainder::$A)
@@ -507,12 +507,12 @@ for A in (Uint16, Uint32, Uint64, Uint128)
     end
 end
 
-# short-circuit "all Uint8" avoiding a self-recursive loop below
-function extend(direcn::Direction{Uint8}, tables::Multiple{Uint8}, data::Vector{Uint8}, remainder::Uint8)
-    extend(direcn, Single{Uint8}(tables), data, remainder)
+# short-circuit "all UInt8" avoiding a self-recursive loop below
+function extend(direcn::Direction{UInt8}, tables::Multiple{UInt8}, data::Vector{UInt8}, remainder::UInt8)
+    extend(direcn, Single{UInt8}(tables), data, remainder)
 end
 
-function extend{A<:U}(direcn::Direction{A}, tables::Multiple{A}, data::Vector{Uint8}, remainder::A)
+function extend{A<:U}(direcn::Direction{A}, tables::Multiple{A}, data::Vector{UInt8}, remainder::A)
     # this is "clever" - we alias the array of bytes to native machine
     # words and then process those, which typically (64 bits) loads 8
     # bytes at a time.
