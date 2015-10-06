@@ -380,7 +380,7 @@ function crc{P<:U, T<:Tables}(spec::Spec{P}; tables::Type{T}=Multiple)
         end
         finalize(spec, direcn, remainder)
     end
-    function handler(data::String; append=false)
+    function handler(data::AbstractString; append=false)
         handler(convert(Vector{UInt8}, data), append=append)
     end
     handler
