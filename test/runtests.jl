@@ -2,7 +2,7 @@
 using CRC
 using Compat
 using Base.Test
-import Zlib: crc32
+import Libz.crc32
 
 
 function test_crc(spec)
