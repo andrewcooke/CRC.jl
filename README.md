@@ -149,6 +149,8 @@ alias crc='julia -e "using CRC; main(ARGS)"'
 
 ## Versions
 
+* 1.2.0 - 2016-09-28 Drop Julia 0.3 support and switch to Libz.
+
 * 1.1.0 - 2015-06-09 Small fixes for Julia 0.4, Travis + Coverage.
 
 * 1.0.0 - 2014-06-31 Changed handler method so that a `String` is converted to
