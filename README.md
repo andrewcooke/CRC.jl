@@ -1,7 +1,6 @@
 [![Build Status](https://travis-ci.org/andrewcooke/CRC.jl.png)](https://travis-ci.org/andrewcooke/CRC.jl)
 [![Coverage Status](https://coveralls.io/repos/andrewcooke/CRC.jl/badge.svg)](https://coveralls.io/r/andrewcooke/CRC.jl)
 
-[![CRC](http://pkg.julialang.org/badges/CRC_0.3.svg)](http://pkg.julialang.org/?pkg=CRC&ver=0.3)
 [![CRC](http://pkg.julialang.org/badges/CRC_0.4.svg)](http://pkg.julialang.org/?pkg=CRC&ver=0.4)
 [![CRC](http://pkg.julialang.org/badges/CRC_0.5.svg)](http://pkg.julialang.org/?pkg=CRC&ver=0.5)
 
