@@ -33,7 +33,6 @@ export crc, make_tables, spec, CHECK, NoTables, Single, Multiple,
 
 import Base.Cartesian: @nexprs
 import Base: ==, isless, print
-using Compat
 using ArgParse
 
 typealias U Unsigned
@@ -152,7 +151,7 @@ CRC_64_WE =          spec(0x42f0e1eba9ea3693, 0xffffffffffffffff, false, false, 
 CRC_64_XZ =          spec(0x42f0e1eba9ea3693, 0xffffffffffffffff, true,  true,  0xffffffffffffffff, 0x995dc9bbdf1939fa)
 CRC_82_DARC =        spec(82, 0x0308c0111011401440411, 0x000000000000000000000, true,  true,   0x000000000000000000000, 0x09ea83f625023801fd612)
 
-@compat ALL = Dict{Any,Any}(:CRC_3_ROHC=>CRC_3_ROHC,
+ALL = Dict{Any,Any}(:CRC_3_ROHC=>CRC_3_ROHC,
                             :CRC_4_ITU=>CRC_4_ITU,
                             :CRC_5_EPC=>CRC_5_EPC,
                             :CRC_5_ITU=>CRC_5_ITU,
