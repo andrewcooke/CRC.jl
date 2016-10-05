@@ -1,6 +1,5 @@
 
 using CRC
-using Compat
 using Base.Test
 import Libz.crc32
 
