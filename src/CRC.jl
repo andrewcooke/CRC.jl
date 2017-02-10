@@ -33,7 +33,7 @@ export crc, make_tables, spec, CHECK, NoTables, Single, Multiple,
 
 import Base.Cartesian: @nexprs
 import Base: ==, isless, print
-using ArgParse
+using Compat
 
 typealias U Unsigned
 
@@ -52,9 +52,9 @@ immutable Spec{P<:U}
     refout::Bool  # reflect output
     xorout::P     # xored with final remainder
     check::P      # checksum for CHECK
-    function Spec(width::Int, poly::P, init::P, refin::Bool, refout::Bool, xorout::P, check::P)
+    @compat function (::Type{Spec{P}}){P}(width::Int, poly::P, init::P, refin::Bool, refout::Bool, xorout::P, check::P)
         @assert width <= 8 * sizeof(P)
-        new(width, poly, init, refin, refout, xorout, check)
+        new{P}(width, poly, init, refin, refout, xorout, check)
     end
 end
 
@@ -284,10 +284,10 @@ abstract Direction{A<:U}
 immutable Backwards{A<:U}<:Direction{A}
     poly::A
     init::A
-    function Backwards(spec::Spec)
+    @compat function (::Type{Backwards{A}}){A}(spec::Spec)
         poly = reflect(spec.width, convert(A, spec.poly))
         init = reflect(spec.width, convert(A, spec.init))
-        new(poly, init)
+        new{A}(poly, init)
     end
 end
 
@@ -297,13 +297,13 @@ immutable Forwards{A<:U}<:Direction{A}
     carry::A
     pad_8::Int
     init::A
-    function Forwards(spec::Spec)
+    @compat function (::Type{Forwards{A}}){A}(spec::Spec)
         pad_p = pad(A, spec.width)
         poly = convert(A, spec.poly) << pad_p
         carry = one(A) << pad(A, 1)
         pad_8 = pad(A, 8)
         init = convert(A, spec.init) << pad_p
-        new(pad_p, poly, carry, pad_8, init)
+        new{A}(pad_p, poly, carry, pad_8, init)
     end
 end
 
@@ -313,13 +313,13 @@ end
 abstract Tables{A<:U}
 
 immutable NoTables{A<:U}<:Tables{A} 
-    NoTables(direcn::Direction{A}) = new()
+    @compat (::Type{NoTables{A}}){A}(direcn::Direction{A}) = new{A}()
 end
 
 immutable Multiple{A<:U}<:Tables{A} 
     tables::Vector{Vector{A}}
-    function Multiple(direcn::Direction{A})
-        tables = Vector{A}[Array(A, 256) for _ in 1:sizeof(A)]
+    @compat function (::Type{Multiple{A}}){A}(direcn::Direction{A})
+        tables = Vector{A}[Array{A}(256) for _ in 1:sizeof(A)]
         fill_table(direcn, tables[1])
         for index in zero(UInt8):convert(UInt8, 255)
             remainder = tables[1][index + 1]
@@ -331,7 +331,7 @@ immutable Multiple{A<:U}<:Tables{A}
                 tables[t][index + 1] = remainder
             end
         end
-        new(tables)
+        new{A}(tables)
     end
 end
 
@@ -339,8 +339,8 @@ immutable Single{A<:U}<:Tables{A}
     table::Vector{A}
     # when using multiple tables we need a related single table for the
     # "last few bytes"
-    Single(tables::Multiple{A}) = new(tables.tables[1])
-    Single(direcn::Direction{A}) = new(fill_table(direcn, Array(A, 256)))
+    @compat (::Type{Single{A}}){A}(tables::Multiple{A}) = new{A}(tables.tables[1])
+    @compat (::Type{Single{A}}){A}(direcn::Direction{A}) = new{A}(fill_table(direcn, Array{A}(256)))
 end
 
 # the basic lookup table is just the remainder for each value
@@ -352,11 +352,11 @@ function fill_table{A<:U}(direcn, table::Vector{A})
 end
 
 function chain{A<:U}(direcn::Forwards{A}, table::Vector{A}, remainder::A)
-    (remainder << 8) $ table[1 + ((remainder >>> direcn.pad_8) & 0xff)]
+    xor(remainder << 8, table[1 + ((remainder >>> direcn.pad_8) & 0xff)])
 end
 
 function chain{A<:U}(direcn::Backwards{A}, table::Vector{A}, remainder::A)
-    (remainder >>> 8) $ table[1 + (remainder & 0xff)]
+    xor(remainder >>> 8, table[1 + (remainder & 0xff)])
 end
 
 
@@ -372,7 +372,7 @@ function crc{P<:U, T<:Tables}(spec::Spec{P}; tables::Type{T}=Multiple)
         finalize(spec, direcn, remainder)
     end
     function handler(io::IO; append=false, buflen=1000000)
-        buffer = Array(UInt8, buflen)
+        buffer = Array{UInt8}(buflen)
         remainder = append ? remainder : direcn.init
         while (nb = readbytes!(io, buffer)) > 0
             remainder = extend(direcn, tables, buffer[1:nb], remainder)
@@ -392,12 +392,12 @@ end
 function finalize{P<:U, A<:U}(spec::Spec{P}, direcn::Forwards{A}, remainder::A)
     remainder = convert(P, remainder >> direcn.pad_p)
     remainder = spec.refout ? reflect(spec.width, remainder) : remainder
-    remainder $ spec.xorout
+    xor(remainder, spec.xorout)
 end
 
 function finalize{P<:U, A<:U}(spec::Spec{P}, direcn::Backwards{A}, remainder::A)
     remainder = spec.refout ? remainder : reflect(spec.width, remainder)
-    convert(P, remainder) $ spec.xorout
+    xor(convert(P, remainder), spec.xorout)
 end
 
 
@@ -409,10 +409,10 @@ const UNROLL = 16  # only get small improvements past this
 
 function extend{A<:U}(direcn::Forwards{A}, tables::NoTables, data::Vector{UInt8}, remainder::A)
     for word::UInt8 in data
-        remainder::A = remainder $ (convert(A, word) << direcn.pad_8)
+        remainder::A = xor(remainder, (convert(A, word) << direcn.pad_8))
         for _ in 1:8
             if remainder & direcn.carry == direcn.carry
-                remainder = (remainder << 1) $ direcn.poly
+                remainder = xor(remainder << 1, direcn.poly)
             else
                 remainder <<= 1
             end
@@ -424,8 +424,8 @@ end
 function extend{A<:U}(direcn::Forwards{A}, tables::Single{A}, data::Vector{UInt8}, remainder::A)
     for i in 1:length(data)
         @inbounds word::UInt8 = data[i]
-        remainder::A = remainder $ (convert(A, word) << direcn.pad_8)
-        remainder = (remainder << 8) $ tables.table[1 + remainder >>> direcn.pad_8]
+        remainder::A = xor(remainder, convert(A, word) << direcn.pad_8)
+        remainder = xor(remainder << 8, tables.table[1 + remainder >>> direcn.pad_8])
     end
     remainder
 end
@@ -447,7 +447,8 @@ for A in (UInt16, UInt32, UInt64, UInt128)
                         # access similar to reflected but we need to
                         # handle little-endian bytes which turn out
                         # wrong for this case
-                        remainder $= tables.tables[t][((word >>> ($n_tables - t)*8) $ (tmp >>> (t-1)*8)) & 0xff + 1]
+                        remainder = xor(remainder,
+                          tables.tables[t][xor(word >>> ($n_tables - t)*8, tmp >>> (t-1)*8) & 0xff + 1])
                     end
                     i += 1
                 end
@@ -459,10 +460,10 @@ end
 
 function extend{A<:U}(direcn::Backwards{A}, tables::NoTables, data::Vector{UInt8}, remainder::A)
     for word::UInt8 in data
-        remainder::A = remainder $ convert(A, word)
+        remainder::A = xor(remainder, convert(A, word))
         for _ in 1:8
             if remainder & one(A) == one(A)
-                remainder = (remainder >>> 1) $ direcn.poly
+                remainder = xor(remainder >>> 1, direcn.poly)
             else
                 remainder >>>= 1
             end
@@ -474,8 +475,8 @@ end
 function extend{A<:U}(direcn::Backwards{A}, tables::Single{A}, data::Vector{UInt8}, remainder::A)
     for i in 1:length(data)
         @inbounds word::UInt8 = data[i]
-        remainder::A = remainder $ (convert(A, word))
-        remainder = (remainder >>> 8) $ tables.table[1 + remainder & 0xff]
+        remainder::A = xor(remainder, convert(A, word))
+        remainder = xor(remainder >>> 8, tables.table[1 + remainder & 0xff])
     end
     remainder
 end
@@ -494,9 +495,10 @@ for A in (UInt16, UInt32, UInt64, UInt128)
                         break
                     end
                     @inbounds word = data[i]
-                    tmp, remainder = remainder $ word, zero($A)
+                    tmp, remainder = xor(remainder, word), zero($A)
                     @nexprs $n_tables t -> begin  # unroll table access
-                        remainder $= tables.tables[t][(tmp >>> ($n_tables - t)*8) & 0xff + 1]
+                        remainder = xor(remainder,
+                          tables.tables[t][(tmp >>> ($n_tables - t)*8) & 0xff + 1])
                     end
                     i += 1
                 end
@@ -519,76 +521,6 @@ function extend{A<:U}(direcn::Direction{A}, tables::Multiple{A}, data::Vector{UI
     remainder = extend(direcn, tables, reinterpret(A, data), remainder)
     # slurp up the final bytes that didn't fill a complete machine word.
     extend(direcn, Single{A}(tables), data[end-tail+1:end], remainder)
-end
-
-
-
-# ---- Command line
-
-
-# julia -e "using CRC; main(ARGS)" ...
-
-function main(args)
-
-    s = ArgParseSettings("Calculate the CRC for the given files")
-
-    @add_arg_table s begin
-        "--list", "-l"
-        help = "list available CRC algorithms"
-        action = :store_true
-        "--decimal", "-d"
-        help = "show checksums as decimal values (default is hex)"
-        action = :store_true
-        "--crc", "-c"
-        help = "name the CRC to use"
-        default = "CRC_32"
-        "--append", "-a"
-        help = "combine the data from all files"
-        action = :store_true
-        "files"
-        help = "the files to read (- for stdin)"
-        nargs = '*'
-    end
-
-    parsed_args = parse_args(args, s)
-
-    if parsed_args["list"]
-        names = sort(collect(keys(ALL)), by=n->ALL[n])
-        for name in names
-            @printf("%s %s\n", name, ALL[name])
-        end
-    end
-
-    name = symbol(parsed_args["crc"])
-    if !haskey(ALL, name)
-        error("CRC $name is not defined")
-    end
-
-    append = parsed_args["append"]
-    spec = ALL[name]
-    c = crc(spec)
-    if parsed_args["decimal"]
-        fmt = x -> dec(x)
-    else
-        fmt = x -> "0x" * hex(x, 1 + div(spec.width-1, 4))
-    end
-    sum = 0
-    for file in parsed_args["files"]
-        if file == "-"
-            sum = c(STDIN, append=append)
-        else
-            open(file, "r") do f
-                sum = c(f, append=append)
-            end
-        end
-        if !append
-            println("$(fmt(sum)) $file")
-        end
-    end
-    if append
-        println("$(fmt(sum))")
-    end
-
 end
 
 end
