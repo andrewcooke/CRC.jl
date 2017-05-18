@@ -35,9 +35,17 @@ import Base.Cartesian: @nexprs
 import Base: ==, isless, print
 using Compat
 
-typealias U Unsigned
+const U = Unsigned
 
-
+immutable UnalignedVector{T<:U}
+    a::Vector{UInt8}
+end
+# unsafe
+@inline Base.getindex{T}(a::UnalignedVector{T}, i) = unsafe_load(Ptr{T}(pointer(a.a)), i)
+@inline Base.length{T}(a::UnalignedVector{T}) = length(a.a) ÷ sizeof(T)
+@inline unaligned_reinterpret{T<:U}(::Type{T}, a::Vector{UInt8}) = UnalignedVector{T}(a)
+@inline unaligned_reinterpret(::Type{UInt8}, a::Vector{UInt8}) = a
+@compat MaybeUnalignedVector{T} = Union{UnalignedVector{T},Vector{T}}
 
 # ---- CRC specifications from http://www.zlib.net/crc_v3.txt
 
@@ -279,7 +287,7 @@ end
 # depends on whether the input input bytes are taken as given
 # (Forwards) or reflected (Backwards).
 
-abstract Direction{A<:U}
+@compat abstract type Direction{A<:U} end
 
 immutable Backwards{A<:U}<:Direction{A}
     poly::A
@@ -310,7 +318,7 @@ end
 
 # a calculation may use no, one, or many tables...
 
-abstract Tables{A<:U}
+@compat abstract type Tables{A<:U} end
 
 immutable NoTables{A<:U}<:Tables{A} 
     @compat (::Type{NoTables{A}}){A}(direcn::Direction{A}) = new{A}()
@@ -433,7 +441,7 @@ end
 for A in (UInt16, UInt32, UInt64, UInt128)
     n_tables = sizeof(A)
     @eval begin
-        function extend(direcn::Forwards{$A}, tables::Multiple{$A}, data::Vector{$A}, remainder::$A)
+        function extend(direcn::Forwards{$A}, tables::Multiple{$A}, data::MaybeUnalignedVector{$A}, remainder::$A)
             word::$A, tmp::$A, remainder::$A = zero($A), zero($A), remainder
             i = 1
             while true
@@ -486,7 +494,7 @@ end
 for A in (UInt16, UInt32, UInt64, UInt128)
     n_tables = sizeof(A)
     @eval begin
-        function extend(direcn::Backwards{$A}, tables::Multiple{$A}, data::Vector{$A}, remainder::$A)
+        function extend(direcn::Backwards{$A}, tables::Multiple{$A}, data::MaybeUnalignedVector{$A}, remainder::$A)
             word::$A, tmp::$A, remainder::$A = zero($A), zero($A), remainder
             i = 1
             while true
@@ -518,7 +526,7 @@ function extend{A<:U}(direcn::Direction{A}, tables::Multiple{A}, data::Vector{UI
     # words and then process those, which typically (64 bits) loads 8
     # bytes at a time.
     tail = length(data) % sizeof(A)
-    remainder = extend(direcn, tables, reinterpret(A, data), remainder)
+    remainder = extend(direcn, tables, unaligned_reinterpret(A, data), remainder)
     # slurp up the final bytes that didn't fill a complete machine word.
     extend(direcn, Single{A}(tables), data[end-tail+1:end], remainder)
 end
