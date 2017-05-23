@@ -42,6 +42,9 @@ The function `crc()` constructs a lookup table, which is cached in the
 returned function (here, `crc32()`).  Re-using `crc32()` to calculate a series
 of CRCs is therefore more efficient than starting with `crc()` each time.
 
+The returned function can also be called with a file handle, so calling
+`open(crc32, file)` will return the checksum of `file`.
+
 ### Within Your Program
 
 The same example as above, but inside your program, would look like this:
