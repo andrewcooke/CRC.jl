@@ -1,6 +1,7 @@
 
 using CRC
-using Base.Test
+using Compat.Test
+using Compat.Random
 import Libz.crc32
 
 
