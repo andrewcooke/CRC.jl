@@ -98,7 +98,11 @@ function time_padded()
     @time ours(data)
 end
 
-srand(0)  # repeatable results
+if VERSION < v"0.7.0-beta2.171"
+    srand(0)
+else
+    Random.seed!(0)  # repeatable results
+end
 
 time_libz()
 time_no_tables()
