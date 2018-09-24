@@ -52,8 +52,14 @@ function test_string()
     @test crc32("abcxyz") == 0xacc462e9
 end
 
+function test_stream()
+    crc32 = crc(CRC_32)
+    @test crc32(IOBuffer("abcxyz")) == 0xacc462e9
+end
+
 function tests()
     test_string()
+    test_stream()
     test_crc(CRC_3_ROHC)
     test_crc(CRC_4_ITU)
     test_crc(CRC_7_ROHC)

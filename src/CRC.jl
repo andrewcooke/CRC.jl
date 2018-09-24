@@ -384,7 +384,7 @@ function crc(spec::Spec{P}; tables::Type{T}=Multiple) where {P<:U, T<:Tables}
         finalize(spec, direcn, remainder)
     end
     function handler(io::IO; append=false, buflen=1000000)
-        buffer = Array{UInt8}(buflen)
+        buffer = Array{UInt8}(undef, buflen)
         remainder = append ? remainder : direcn.init
         while (nb = readbytes!(io, buffer)) > 0
             remainder = extend(direcn, tables, buffer[1:nb], remainder)
