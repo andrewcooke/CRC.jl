@@ -37,22 +37,22 @@ using Compat
 
 const U = Unsigned
 
-immutable UnalignedVector{T<:U}
+struct UnalignedVector{T<:U}
     a::Vector{UInt8}
 end
 # unsafe
-@inline Base.getindex{T}(a::UnalignedVector{T}, i) = unsafe_load(Ptr{T}(pointer(a.a)), i)
-@inline Base.length{T}(a::UnalignedVector{T}) = length(a.a) ÷ sizeof(T)
-@inline unaligned_reinterpret{T<:U}(::Type{T}, a::Vector{UInt8}) = UnalignedVector{T}(a)
+@inline Base.getindex(a::UnalignedVector{T}, i) where {T} = unsafe_load(Ptr{T}(pointer(a.a)), i)
+@inline Base.length(a::UnalignedVector{T}) where {T} = length(a.a) ÷ sizeof(T)
+@inline unaligned_reinterpret(::Type{T}, a::Vector{UInt8}) where {T<:U} = UnalignedVector{T}(a)
 @inline unaligned_reinterpret(::Type{UInt8}, a::Vector{UInt8}) = a
-@compat MaybeUnalignedVector{T} = Union{UnalignedVector{T},Vector{T}}
+MaybeUnalignedVector{T} = Union{UnalignedVector{T},Vector{T}}
 
 # ---- CRC specifications from http://www.zlib.net/crc_v3.txt
 
 
-CHECK = b"123456789"   # universal check vector
+CHECK = Vector{UInt8}(b"123456789")   # universal check vector
 
-immutable Spec{P<:U}
+struct Spec{P<:U}
     width::Int    # polynomial degree
     poly::P       # generating poly with msb missing
     init::P       # initial remainder
@@ -60,25 +60,29 @@ immutable Spec{P<:U}
     refout::Bool  # reflect output
     xorout::P     # xored with final remainder
     check::P      # checksum for CHECK
-    @compat function (::Type{Spec{P}}){P}(width::Int, poly::P, init::P, refin::Bool, refout::Bool, xorout::P, check::P)
+    function (::Type{Spec{P}})(width::Int, poly::P, init::P, refin::Bool, refout::Bool, xorout::P, check::P) where {P}
         @assert width <= 8 * sizeof(P)
         new{P}(width, poly, init, refin, refout, xorout, check)
     end
 end
 
-spec{P<:U}(poly::P, init::P, refin::Bool, refout::Bool, xorout::P, check::P) = 
+spec(poly::P, init::P, refin::Bool, refout::Bool, xorout::P, check::P) where {P<:U} =
     Spec{P}(8*sizeof(P), poly, init, refin, refout, xorout, check)
 
-spec{P<:U}(width::Int, poly::P, init::P, refin::Bool, refout::Bool, xorout::P, check::P) = 
+spec(width::Int, poly::P, init::P, refin::Bool, refout::Bool, xorout::P, check::P) where {P<:U} =
     Spec{P}(width, poly, init, refin, refout, xorout, check)
 
 ==(a::Spec, b::Spec) = a.width == b.width && a.poly == b.poly && a.init == b.init && a.refin == b.refin && a.refout == b.refout && a.xorout == b.xorout
 
 isless(a::Spec, b::Spec) = a.width < b.width || (a.width == b.width && (a.poly < b.poly || a.poly == b.poly && (a.init < b.init || (a.init == b.init && !a.refin && (a.refin != b.refin || (a.refin == b.refin && !a.refout && (a.refout != b.refout || a.xorout < b.xorout)))))))
 
-function print{P<:U}(io::IO, s::Spec{P})
+function print(io::IO, s::Spec{P}) where {P<:U}
     n = 1 + div(s.width - 1, 4)
-    h = x -> "0x" * hex(x, n)
+    if VERSION < v"0.7.0-DEV.4446"
+        h = x -> "0x" * hex(x, n)
+    else
+        h = x -> "0x" * string(x, base = 16, pad = n)
+    end
     print(io, "width=$(s.width) poly=$(h(s.poly)) init=$(h(s.init)) refin=$(s.refin) refout=$(s.refout) xorout=$(h(s.xorout)) check=$(h(s.check))")
 end
 
@@ -247,7 +251,7 @@ for (T,S) in ((UInt16, UInt8), (UInt32, UInt16), (UInt64, UInt32), (UInt128, UIn
     @eval reflect(u::$T) = (convert($T, reflect(convert($S, u & $mask))) << $n) | reflect(convert($S, (u >>> $n) & $mask))
 end
 
-function reflect{T<:U}(size, u::T)
+function reflect(size, u::T) where {T<:U}
     width = 8 * sizeof(T)
     @assert size <= width "cannot reflect a value larger than the representation"
     reflect(u) >>> (width - size)
@@ -273,7 +277,7 @@ function fastest(T, TS...)
 end
 
 
-function pad{A<:U}(::Type{A}, width)
+function pad(::Type{A}, width) where {A<:U}
     8 * sizeof(A) - width
 end
 
@@ -287,25 +291,25 @@ end
 # depends on whether the input input bytes are taken as given
 # (Forwards) or reflected (Backwards).
 
-@compat abstract type Direction{A<:U} end
+abstract type Direction{A<:U} end
 
-immutable Backwards{A<:U}<:Direction{A}
+struct Backwards{A<:U}<:Direction{A}
     poly::A
     init::A
-    @compat function (::Type{Backwards{A}}){A}(spec::Spec)
+    function (::Type{Backwards{A}})(spec::Spec) where {A}
         poly = reflect(spec.width, convert(A, spec.poly))
         init = reflect(spec.width, convert(A, spec.init))
         new{A}(poly, init)
     end
 end
 
-immutable Forwards{A<:U}<:Direction{A}
+struct Forwards{A<:U}<:Direction{A}
     pad_p::Int
     poly::A
     carry::A
     pad_8::Int
     init::A
-    @compat function (::Type{Forwards{A}}){A}(spec::Spec)
+    function (::Type{Forwards{A}})(spec::Spec) where {A}
         pad_p = pad(A, spec.width)
         poly = convert(A, spec.poly) << pad_p
         carry = one(A) << pad(A, 1)
@@ -318,16 +322,16 @@ end
 
 # a calculation may use no, one, or many tables...
 
-@compat abstract type Tables{A<:U} end
+abstract type Tables{A<:U} end
 
-immutable NoTables{A<:U}<:Tables{A} 
-    @compat (::Type{NoTables{A}}){A}(direcn::Direction{A}) = new{A}()
+struct NoTables{A<:U}<:Tables{A}
+    (::Type{NoTables{A}})(direcn::Direction{A}) where {A} = new{A}()
 end
 
-immutable Multiple{A<:U}<:Tables{A} 
+struct Multiple{A<:U}<:Tables{A}
     tables::Vector{Vector{A}}
-    @compat function (::Type{Multiple{A}}){A}(direcn::Direction{A})
-        tables = Vector{A}[Array{A}(256) for _ in 1:sizeof(A)]
+    function (::Type{Multiple{A}})(direcn::Direction{A}) where {A}
+        tables = Vector{A}[Array{A}(undef, 256) for _ in 1:sizeof(A)]
         fill_table(direcn, tables[1])
         for index in zero(UInt8):convert(UInt8, 255)
             remainder = tables[1][index + 1]
@@ -343,33 +347,33 @@ immutable Multiple{A<:U}<:Tables{A}
     end
 end
 
-immutable Single{A<:U}<:Tables{A}
+struct Single{A<:U}<:Tables{A}
     table::Vector{A}
     # when using multiple tables we need a related single table for the
     # "last few bytes"
-    @compat (::Type{Single{A}}){A}(tables::Multiple{A}) = new{A}(tables.tables[1])
-    @compat (::Type{Single{A}}){A}(direcn::Direction{A}) = new{A}(fill_table(direcn, Array{A}(256)))
+    (::Type{Single{A}})(tables::Multiple{A}) where {A} = new{A}(tables.tables[1])
+    (::Type{Single{A}})(direcn::Direction{A}) where {A} = new{A}(fill_table(direcn, Array{A}(undef, 256)))
 end
 
 # the basic lookup table is just the remainder for each value
-function fill_table{A<:U}(direcn, table::Vector{A})
+function fill_table(direcn, table::Vector{A}) where {A<:U}
     for index in zero(UInt8):convert(UInt8, 255)
         table[index + 1] = extend(direcn, NoTables{A}(direcn), [index], zero(A))
     end
     table
 end
 
-function chain{A<:U}(direcn::Forwards{A}, table::Vector{A}, remainder::A)
+function chain(direcn::Forwards{A}, table::Vector{A}, remainder::A) where {A<:U}
     xor(remainder << 8, table[1 + ((remainder >>> direcn.pad_8) & 0xff)])
 end
 
-function chain{A<:U}(direcn::Backwards{A}, table::Vector{A}, remainder::A)
+function chain(direcn::Backwards{A}, table::Vector{A}, remainder::A) where {A<:U}
     xor(remainder >>> 8, table[1 + (remainder & 0xff)])
 end
 
 
 # main entry point.
-function crc{P<:U, T<:Tables}(spec::Spec{P}; tables::Type{T}=Multiple)
+function crc(spec::Spec{P}; tables::Type{T}=Multiple) where {P<:U, T<:Tables}
     A = fastest(P, tables == Multiple ? UInt : UInt8)
     direcn = spec.refin ? Backwards{A}(spec) : Forwards{A}(spec)
     remainder::A = direcn.init
@@ -380,7 +384,7 @@ function crc{P<:U, T<:Tables}(spec::Spec{P}; tables::Type{T}=Multiple)
         finalize(spec, direcn, remainder)
     end
     function handler(io::IO; append=false, buflen=1000000)
-        buffer = Array{UInt8}(buflen)
+        buffer = Array{UInt8}(undef, buflen)
         remainder = append ? remainder : direcn.init
         while (nb = readbytes!(io, buffer)) > 0
             remainder = extend(direcn, tables, buffer[1:nb], remainder)
@@ -388,7 +392,7 @@ function crc{P<:U, T<:Tables}(spec::Spec{P}; tables::Type{T}=Multiple)
         finalize(spec, direcn, remainder)
     end
     function handler(data::AbstractString; append=false)
-        handler(convert(Vector{UInt8}, data), append=append)
+        handler(convert(Vector{UInt8}, codeunits(data)), append=append)
     end
     handler
 end
@@ -397,13 +401,13 @@ end
 # calculations assume that the remainder is either reflected or
 # padded; these functions correct for this to return the final result.
 
-function finalize{P<:U, A<:U}(spec::Spec{P}, direcn::Forwards{A}, remainder::A)
+function finalize(spec::Spec{P}, direcn::Forwards{A}, remainder::A) where {P<:U, A<:U}
     remainder = convert(P, remainder >> direcn.pad_p)
     remainder = spec.refout ? reflect(spec.width, remainder) : remainder
     xor(remainder, spec.xorout)
 end
 
-function finalize{P<:U, A<:U}(spec::Spec{P}, direcn::Backwards{A}, remainder::A)
+function finalize(spec::Spec{P}, direcn::Backwards{A}, remainder::A) where {P<:U, A<:U}
     remainder = spec.refout ? remainder : reflect(spec.width, remainder)
     xor(convert(P, remainder), spec.xorout)
 end
@@ -415,7 +419,7 @@ end
 
 const UNROLL = 16  # only get small improvements past this
 
-function extend{A<:U}(direcn::Forwards{A}, tables::NoTables, data::Vector{UInt8}, remainder::A)
+function extend(direcn::Forwards{A}, tables::NoTables, data::Vector{UInt8}, remainder::A) where {A<:U}
     for word::UInt8 in data
         remainder::A = xor(remainder, (convert(A, word) << direcn.pad_8))
         for _ in 1:8
@@ -429,7 +433,7 @@ function extend{A<:U}(direcn::Forwards{A}, tables::NoTables, data::Vector{UInt8}
     remainder
 end
 
-function extend{A<:U}(direcn::Forwards{A}, tables::Single{A}, data::Vector{UInt8}, remainder::A)
+function extend(direcn::Forwards{A}, tables::Single{A}, data::Vector{UInt8}, remainder::A) where {A<:U}
     for i in 1:length(data)
         @inbounds word::UInt8 = data[i]
         remainder::A = xor(remainder, convert(A, word) << direcn.pad_8)
@@ -456,7 +460,7 @@ for A in (UInt16, UInt32, UInt64, UInt128)
                         # handle little-endian bytes which turn out
                         # wrong for this case
                         remainder = xor(remainder,
-                          tables.tables[t][xor(word >>> ($n_tables - t)*8, tmp >>> (t-1)*8) & 0xff + 1])
+                          tables.tables[t][xor(word >>> (($n_tables - t)*8), tmp >>> ((t-1)*8)) & 0xff + 1])
                     end
                     i += 1
                 end
@@ -466,7 +470,7 @@ for A in (UInt16, UInt32, UInt64, UInt128)
     end
 end
 
-function extend{A<:U}(direcn::Backwards{A}, tables::NoTables, data::Vector{UInt8}, remainder::A)
+function extend(direcn::Backwards{A}, tables::NoTables, data::Vector{UInt8}, remainder::A) where {A<:U}
     for word::UInt8 in data
         remainder::A = xor(remainder, convert(A, word))
         for _ in 1:8
@@ -480,7 +484,7 @@ function extend{A<:U}(direcn::Backwards{A}, tables::NoTables, data::Vector{UInt8
     remainder
 end
 
-function extend{A<:U}(direcn::Backwards{A}, tables::Single{A}, data::Vector{UInt8}, remainder::A)
+function extend(direcn::Backwards{A}, tables::Single{A}, data::Vector{UInt8}, remainder::A) where {A<:U}
     for i in 1:length(data)
         @inbounds word::UInt8 = data[i]
         remainder::A = xor(remainder, convert(A, word))
@@ -506,7 +510,7 @@ for A in (UInt16, UInt32, UInt64, UInt128)
                     tmp, remainder = xor(remainder, word), zero($A)
                     @nexprs $n_tables t -> begin  # unroll table access
                         remainder = xor(remainder,
-                          tables.tables[t][(tmp >>> ($n_tables - t)*8) & 0xff + 1])
+                          tables.tables[t][(tmp >>> (($n_tables - t)*8)) & 0xff + 1])
                     end
                     i += 1
                 end
@@ -521,7 +525,7 @@ function extend(direcn::Direction{UInt8}, tables::Multiple{UInt8}, data::Vector{
     extend(direcn, Single{UInt8}(tables), data, remainder)
 end
 
-function extend{A<:U}(direcn::Direction{A}, tables::Multiple{A}, data::Vector{UInt8}, remainder::A)
+function extend(direcn::Direction{A}, tables::Multiple{A}, data::Vector{UInt8}, remainder::A) where {A<:U}
     # this is "clever" - we alias the array of bytes to native machine
     # words and then process those, which typically (64 bits) loads 8
     # bytes at a time.

@@ -1,6 +1,7 @@
 
 using CRC
-using Base.Test
+using Compat.Test
+using Compat.Random
 import Libz.crc32
 
 
@@ -51,8 +52,14 @@ function test_string()
     @test crc32("abcxyz") == 0xacc462e9
 end
 
+function test_stream()
+    crc32 = crc(CRC_32)
+    @test crc32(IOBuffer("abcxyz")) == 0xacc462e9
+end
+
 function tests()
     test_string()
+    test_stream()
     test_crc(CRC_3_ROHC)
     test_crc(CRC_4_ITU)
     test_crc(CRC_7_ROHC)
@@ -97,7 +104,11 @@ function time_padded()
     @time ours(data)
 end
 
-srand(0)  # repeatable results
+if VERSION < v"0.7.0-beta2.171"
+    srand(0)
+else
+    Random.seed!(0)  # repeatable results
+end
 
 time_libz()
 time_no_tables()
