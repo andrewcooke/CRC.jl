@@ -17,7 +17,7 @@ export crc, spec, CHECK, NoTables, Single, Multiple, ALL,
        CRC_64, CRC_64_WE, CRC_64_XZ, CRC_82_DARC
 
 import Base.Cartesian: @nexprs
-import Base: ==, isless, show
+import Base: ==, isless, print
 
 const U = Unsigned
 
@@ -60,7 +60,7 @@ spec(width::Int, poly::P, init::P, refin::Bool, refout::Bool, xorout::P, check::
 
 isless(a::Spec, b::Spec) = a.width < b.width || (a.width == b.width && (a.poly < b.poly || a.poly == b.poly && (a.init < b.init || (a.init == b.init && !a.refin && (a.refin != b.refin || (a.refin == b.refin && !a.refout && (a.refout != b.refout || a.xorout < b.xorout)))))))
 
-function show(io::IO, s::Spec{P}) where {P<:U}
+function print(io::IO, s::Spec{P}) where {P<:U}
     n = 1 + div(s.width - 1, 4)
     h = x -> "0x" * string(x, base = 16, pad = n)
     print(io, "width=$(s.width) poly=$(h(s.poly)) init=$(h(s.init)) refin=$(s.refin) refout=$(s.refout) xorout=$(h(s.xorout)) check=$(h(s.check))")
@@ -350,7 +350,30 @@ function chain(direcn::Backwards{A}, table::Vector{A}, remainder::A) where {A<:U
     xor(remainder >>> 8, table[1 + (remainder & 0xff)])
 end
 
+"""
+    crc(spec[, tables = Multiple])
 
+Create a crc function implementing `spec` with lookup table behaviour `tables`.
+Available specs are listed in [`ALL`](@ref) and tables can be either
+[`Multiple`](@ref), [`Single`](@ref) or [`NoTables`](@ref).
+
+The returned function accepts `String`, `Vector{UInt8}` or
+`IO` and calculates the CRC checksum. An optional boolean parameter
+`append` can be used for chained application.
+
+# Examples
+```julia-repl
+using CRC
+
+# create our own crc function, just once
+crc32 = crc(CRC_32)
+
+# use the crc function created above, many times
+for s in ["hello", "there"]
+    println(s => crc32(s))
+end
+```
+"""
 function crc(spec::Spec{P}; tables::Type{T}=Multiple) where {P<:U, T<:Tables}
     A = fastest(P, tables == Multiple ? UInt : UInt8)
     direcn = spec.refin ? Backwards{A}(spec) : Forwards{A}(spec)

@@ -1,9 +1,6 @@
 [![Build Status](https://travis-ci.org/andrewcooke/CRC.jl.png)](https://travis-ci.org/andrewcooke/CRC.jl)
 [![Coverage Status](https://coveralls.io/repos/andrewcooke/CRC.jl/badge.svg)](https://coveralls.io/r/andrewcooke/CRC.jl)
 
-[![CRC](http://pkg.julialang.org/badges/CRC_0.4.svg)](http://pkg.julialang.org/?pkg=CRC&ver=0.4)
-[![CRC](http://pkg.julialang.org/badges/CRC_0.5.svg)](http://pkg.julialang.org/?pkg=CRC&ver=0.5)
-
 # CRC
 
 This is a [Julia](http://julialang.org/) module for calculating Cyclic
@@ -34,7 +31,7 @@ julia> using CRC
 julia> crc32 = crc(CRC_32)
 (anonymous function)
 
-julia> crc32(b"123456789")
+julia> crc32("123456789")
 0xcbf43926
 ```
 
@@ -65,7 +62,7 @@ end
 ### Force Direct (Tableless) Calculation
 
 ```
-julia> crc(CRC_32, tables=NoTables)(b"123456789")
+julia> crc(CRC_32, tables=NoTables)("123456789")
 0xcbf43926
 ```
 
@@ -78,7 +75,7 @@ xorout=0x00 check=0x75 name="CRC-7"`
 
 ```
 julia> myCRC7 = spec(7, 0x09, 0x00, false, false, 0x00, 0x75)
-Spec{Uint8}(7,0x09,0x00,false,false,0x00,0x75)
+CRC.Spec{UInt8}(7, 0x09, 0x00, false, false, 0x00, 0x75)
 
 julia> @assert crc(myCRC7)(CHECK) == myCRC7.check
 ```
@@ -87,7 +84,7 @@ Of course, this is already defined:
 
 ```
 julia> CRC_7
-Spec{Uint8}(7,0x09,0x00,false,false,0x00,0x75)
+CRC.Spec{UInt8}(7, 0x09, 0x00, false, false, 0x00, 0x75)
 ```
 
 ## From the Command Line
@@ -96,7 +93,7 @@ The `main(ARGS)` function is a simple utility for calculating the
 checksum of files:
 
 ```
-andrew@laptop:~/project/CRC> julia -e "using CRC; main(ARGS)" -h
+andrew@laptop:~/project/CRC> julia -e "using CRC; main(ARGS)" -- -h
 usage: <PROGRAM> [-l] [-d] [-c CRC] [-a] [-h] [files...]
 
 Calculate the CRC for the given files
@@ -111,9 +108,11 @@ optional arguments:
   -a, --append   combine the data from all files
   -h, --help     show this help message and exit
 
-andrew@laptop:~/project/CRC> alias crc='julia -e "using CRC; main(ARGS)"'
-andrew@laptop:~/project/CRC> crc -l | grep "CRC_32 "
-CRC_32 width=32 poly=0x04c11db7 init=0xffffffff refin=true refout=true xorout=0xffffffff check=0xcbf43926
+andrew@laptop:~/project/CRC> alias crc='julia -e "using CRC; main(ARGS)" -- '
+andrew@laptop:~/project/CRC> crc -l | grep "CRC_32"
+CRC_32_XFER width=32 poly=0x000000af init=0x00000000 refin=false refout=false xorout=0x00000000 check=0xbd0be338
+CRC_32_POSIX width=32 poly=0x04c11db7 init=0x00000000 refin=false refout=false xorout=0xffffffff check=0x765e7680
+...
 andrew@laptop:~/project/CRC> echo -n "123456789" > /tmp/crc.txt
 andrew@laptop:~/project/CRC> crc /tmp/crc.txt
 0xcbf43926 /tmp/crc.txt
@@ -133,7 +132,7 @@ julia> Pkg.add("CRC")
 Then, to define the `crc` command line utility:
 
 ```
-alias crc='julia -e "using CRC; main(ARGS)"'
+alias crc='julia -e "using CRC; main(ARGS)" -- '
 ```
 
 (in, for example, `.alias`).
@@ -151,6 +150,8 @@ alias crc='julia -e "using CRC; main(ARGS)"'
   single algorithm.
 
 ## Versions
+
+* 3.0.0 - 2018-02-28 Update for Julia 1.0
 
 * 1.2.0 - 2016-09-28 Drop Julia 0.3 support and switch to Libz.
 
