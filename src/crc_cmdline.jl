@@ -1,5 +1,7 @@
-using CRC
+export main
+
 using ArgParse
+using Printf
 
 # julia -e "Pkg" ...
 
@@ -34,7 +36,7 @@ function main(args)
         end
     end
 
-    name = symbol(parsed_args["crc"])
+    name = Symbol(parsed_args["crc"])
     if !haskey(ALL, name)
         error("CRC $name is not defined")
     end
@@ -43,9 +45,9 @@ function main(args)
     spec = ALL[name]
     c = crc(spec)
     if parsed_args["decimal"]
-        fmt = x -> dec(x)
+        fmt = x -> Int(x)
     else
-        fmt = x -> "0x" * hex(x, 1 + div(spec.width-1, 4))
+        fmt = x -> "0x" * string(x, base=16, pad = 1 + div(spec.width-1, 4))
     end
     sum = 0
     for file in parsed_args["files"]
