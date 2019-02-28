@@ -361,6 +361,8 @@ The returned function accepts `String`, `Vector{UInt8}` or
 `IO` and calculates the CRC checksum. An optional boolean parameter
 `append` can be used for chained application.
 
+A faster CRC32*C* implementation is available in Stdlib: [`CRC32c`](@ref).
+
 # Examples
 ```julia-repl
 using CRC
