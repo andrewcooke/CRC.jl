@@ -12,7 +12,7 @@
 
 module CRC
 
-include("crc.jl")
-include("main.jl")
+include("crc_calc.jl")
+include("crc_cmdline.jl")
 
 end
