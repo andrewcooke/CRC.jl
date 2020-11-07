@@ -1,0 +1,11 @@
+name = "CRC"
+uuid = "44b605c4-b955-5f2b-9b6d-d2bd01d3d205"
+authors = ["Andrew Cooke <andrew@acooke.org>"]
+version = "3.1.0"
+
+[deps]
+ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
+
+[compat]
+ArgParse = "1.1.0"
+julia = "1"
