@@ -151,6 +151,8 @@ alias crc='julia -e "using CRC; main(ARGS)" -- '
 
 ## Versions
 
+* 3.1.0 - 2020-11-07 Update ArgParse dependency and add Project.toml.
+
 * 3.0.0 - 2018-02-28 Update for Julia 1.0
 
 * 1.2.0 - 2016-09-28 Drop Julia 0.3 support and switch to Libz.
