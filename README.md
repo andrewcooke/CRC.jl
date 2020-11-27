@@ -4,8 +4,7 @@
 # CRC
 
 This is a [Julia](http://julialang.org/) module for calculating Cyclic
-Redundancy Checksums (CRCs).  It also contains a [command
-line](#from-the-command-line) tool for calculating the CRC of files.
+Redundancy Checksums (CRCs).
 
 * All the algorithms in the [RevEng
   Catalogue](http://reveng.sourceforge.net/crc-catalogue) are supported.
@@ -87,39 +86,6 @@ julia> CRC_7
 CRC.Spec{UInt8}(7, 0x09, 0x00, false, false, 0x00, 0x75)
 ```
 
-## From the Command Line
-
-The `main(ARGS)` function is a simple utility for calculating the
-checksum of files:
-
-```
-andrew@laptop:~/project/CRC> julia -e "using CRC; main(ARGS)" -- -h
-usage: <PROGRAM> [-l] [-d] [-c CRC] [-a] [-h] [files...]
-
-Calculate the CRC for the given files
-
-positional arguments:
-  files          the files to read (- for stdin)
-
-optional arguments:
-  -l, --list     list available CRC algorithms
-  -d, --decimal  show checksums as decimal values (default is hex)
-  -c, --crc CRC  name the CRC to use (default: CRC_32)
-  -a, --append   combine the data from all files
-  -h, --help     show this help message and exit
-
-andrew@laptop:~/project/CRC> alias crc='julia -e "using CRC; main(ARGS)" -- '
-andrew@laptop:~/project/CRC> crc -l | grep "CRC_32"
-CRC_32_XFER width=32 poly=0x000000af init=0x00000000 refin=false refout=false xorout=0x00000000 check=0xbd0be338
-CRC_32_POSIX width=32 poly=0x04c11db7 init=0x00000000 refin=false refout=false xorout=0xffffffff check=0x765e7680
-...
-andrew@laptop:~/project/CRC> echo -n "123456789" > /tmp/crc.txt
-andrew@laptop:~/project/CRC> crc /tmp/crc.txt
-0xcbf43926 /tmp/crc.txt
-```
-
-Note that the result matches the `check` value for the algorithm.
-
 ## Installation
 
 Julia can be downloaded [here](http://julialang.org/downloads/).  Once
@@ -129,27 +95,9 @@ Julia is working you can install this package using:
 julia> Pkg.add("CRC")
 ```
 
-Then, to define the `crc` command line utility:
-
-```
-alias crc='julia -e "using CRC; main(ARGS)" -- '
-```
-
-(in, for example, `.alias`).
-
-## Other CRC Packages
-
-* [CRC32.jl](https://github.com/fhs/CRC32.jl) is a simple implementation of
-  CRC_32 - it is easier to understand than this code, but slower, and only
-  supports a single CRC algorithm.
-
-* [libz](https://github.com/dcjones/Zlib.jl) includes (amongst many
-  other things) a wrapper to a C version of CRC_32 - it is similar in
-  speed to this package (and wil be faster for short, single uses,
-  because the lookup table is pre-calculated), but only supports that
-  single algorithm.
-
 ## Versions
+
+* 4.0.0 - 2020-11-27 Remove command line functionality.
 
 * 3.1.0 - 2020-11-07 Update ArgParse dependency and add Project.toml.
 
