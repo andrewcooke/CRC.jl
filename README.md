@@ -13,12 +13,15 @@ Redundancy Checksums (CRCs).
 
 * Calculation can be direct or via cached tables.
 
-* Speed is comparable to optimized C (checked against CRC32 in libz).
-
 * Only arrays of bytes are accepted as data (it's certainly possible
   to handle arbitrary sized sequences; previous versions did this, but
   it complicated the code for little practical gain so I removed it -
   please contact me if you want me to add it back).
+
+Although the performance of CRC.jl is good, even faster CRC-32 checksums are possible using the
+[heavily optimized C implementation](https://github.com/madler/zlib/blob/04f42ceca40f73e2978b50e93806c2a18c1281fc/crc32.c) in zlib
+via the [CRC32.jl package](https://github.com/JuliaIO/CRC32.jl), or using hardware-accelerated CRC-32c checksums in
+the [CRC32c standard library](https://docs.julialang.org/en/v1/stdlib/CRC32c/).
 
 ## Examples
 
